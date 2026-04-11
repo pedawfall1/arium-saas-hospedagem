@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 
-export default function PlanButton({ plan, label }: { plan: string, label: string }) {
+export default function PlanButton({ plan, label, color = 'var(--purple)' }: { plan: string, label: string, color?: string }) {
   const [loading, setLoading] = useState(false)
 
   const handleClick = async () => {
@@ -44,19 +44,15 @@ export default function PlanButton({ plan, label }: { plan: string, label: strin
   }
 
   return (
-    <button
-      onClick={handleClick}
-      disabled={loading}
-      style={{
-        width: '100%', padding: '12px', borderRadius: '10px',
-        border: '1px solid var(--border)',
-        backgroundColor: loading ? 'rgba(124,58,237,0.3)' : 'transparent',
-        color: 'var(--text)', fontSize: '14px', fontWeight: 600,
-        cursor: loading ? 'not-allowed' : 'pointer',
-        transition: 'all 0.15s',
-        marginTop: '24px',
-      }}
-    >
+    <button onClick={handleClick} disabled={loading} style={{
+      width: '100%', padding: '12px', borderRadius: '10px', marginTop: '24px',
+      border: `1px solid ${color}22`,
+      backgroundColor: loading ? `${color}22` : 'transparent',
+      color: loading ? 'var(--muted)' : color,
+      fontSize: '14px', fontWeight: 600,
+      cursor: loading ? 'not-allowed' : 'pointer',
+      transition: 'all 0.15s',
+    }}>
       {loading ? 'Redirecionando...' : label}
     </button>
   )

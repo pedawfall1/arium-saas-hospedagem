@@ -215,7 +215,163 @@ body::before {
 .landing-nav-link {
   color: var(--muted);
   text-decoration: none;
-  font-size: 14px;
-  transition: color 0.15s;
+  font-size: 14px; transition: color 0.15s;
 }
 .landing-nav-link:hover { color: var(--text); }
+
+.landing-navbar {
+  position: fixed; top: 16px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background-color: rgba(8,8,15,0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(124,58,237,0.2);
+  border-radius: 999px;
+  padding: 0 28px;
+  height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 40px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  width: max-content;
+  max-width: calc(100vw - 32px);
+}
+.landing-nav-links {
+  display: flex; align-items: center; gap: 28px;
+}
+.landing-nav-link {
+  color: var(--muted); text-decoration: none;
+  font-size: 14px; transition: color 0.15s;
+}
+.landing-nav-link:hover { color: var(--text); }
+
+.landing-section {
+  padding: 100px 48px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.landing-section-full {
+  padding: 100px 48px;
+}
+
+.landing-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 48px;
+}
+.landing-step-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 24px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.landing-step-card:hover {
+  border-color: rgba(124,58,237,0.4);
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px rgba(124,58,237,0.15);
+}
+
+.landing-plans {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  max-width: 960px;
+  margin: 48px auto 0;
+  align-items: start;
+}
+.landing-plan-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px 28px;
+  position: relative;
+  transition: all 0.2s ease;
+}
+.landing-plan-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.25);
+}
+.landing-plan-card.featured {
+  border-color: rgba(249,115,0,0.4);
+  box-shadow: 0 20px 60px rgba(124,58,237,0.15);
+}
+
+.landing-hero-btns {
+  display: flex; gap: 16px; justify-content: center;
+  flex-wrap: wrap;
+}
+.landing-trust {
+  display: flex; align-items: center; gap: 24px;
+  justify-content: center; margin-top: 24px;
+  flex-wrap: wrap;
+}
+.landing-stats {
+  display: flex; gap: 16px; justify-content: center;
+  margin-top: 32px; flex-wrap: wrap;
+}
+
+.landing-wpp-btn {
+  display: inline-flex; align-items: center; gap: 12px;
+  background-color: #25d366; color: white;
+  border-radius: 12px; padding: 16px 36px;
+  font-size: 16px; font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 8px 32px rgba(37,211,102,0.3);
+  transition: all 0.2s ease;
+}
+.landing-wpp-btn:hover {
+  box-shadow: 0 12px 40px rgba(37,211,102,0.45);
+  transform: translateY(-2px);
+}
+
+.landing-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 32px 48px;
+  border-top: 1px solid var(--border);
+}
+
+/* ===== MOBILE ===== */
+@media (max-width: 767px) {
+  .landing-navbar {
+    left: 16px; right: 16px;
+    transform: none;
+    border-radius: 14px;
+    padding: 0 16px;
+    width: auto;
+    gap: 0;
+  }
+  .landing-nav-links { display: none; }
+
+  .landing-section { padding: 64px 20px; }
+  .landing-section-full { padding: 64px 20px; }
+
+  .landing-steps { grid-template-columns: 1fr; gap: 12px; margin-top: 32px; }
+  .landing-plans { grid-template-columns: 1fr; gap: 16px; padding: 0 4px; }
+  .landing-plan-card.featured { box-shadow: none; }
+
+  .landing-hero-btns { flex-direction: column; }
+  .landing-hero-btns a { width: 100%; text-align: center; }
+
+  .landing-trust { flex-direction: column; gap: 8px; }
+  .landing-trust .divider { display: none; }
+
+  .landing-stats { flex-direction: column; align-items: center; }
+
+  .landing-footer {
+    flex-direction: column; gap: 12px;
+    text-align: center; padding: 28px 20px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .landing-steps { grid-template-columns: repeat(2, 1fr); }
+  .landing-plans { grid-template-columns: 1fr; max-width: 480px; }
+  .landing-section { padding: 80px 32px; }
+}
