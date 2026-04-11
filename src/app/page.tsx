@@ -66,14 +66,14 @@ export default function HomePage() {
         </h2>
         <div className="landing-steps">
           {[
-            { emoji: 'rocket', title: 'Cadastro', text: 'Você se cadastra, a gente configura seu site personalizado em até 7 dias úteis.', num: '1' },
-            { emoji: 'globe', title: 'Site online', text: 'Seu site de reservas no ar com sua identidade visual, preços e fotos.', num: '2' },
-            { emoji: 'credit-card', title: 'Hóspede reserva', text: 'O cliente escolhe as datas e paga o sinal direto pelo site com cartão ou Pix.', num: '3' },
-            { emoji: 'phone', title: 'Você é avisado', text: 'Recebe confirmação automática no WhatsApp com nome, datas e valor pago.', num: '4' },
+            { emoji: '\ud83d\ude80', title: 'Cadastro', text: 'Você se cadastra, a gente configura seu site personalizado em até 7 dias úteis.', num: '1' },
+            { emoji: '\ud83c\udf10', title: 'Site online', text: 'Seu site de reservas no ar com sua identidade visual, preços e fotos.', num: '2' },
+            { emoji: '\ud83d\udcb3', title: 'Hóspede reserva', text: 'O cliente escolhe as datas e paga o sinal direto pelo site com cartão ou Pix.', num: '3' },
+            { emoji: '\ud83d\udcf1', title: 'Você é avisado', text: 'Recebe confirmação automática no WhatsApp com nome, datas e valor pago.', num: '4' },
           ].map(({ emoji, title, text, num }) => (
             <div key={num} className="landing-step-card">
               <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(124,58,237,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>
-                {emoji === 'rocket' ? '\ud83d\ude80' : emoji === 'globe' ? '\ud83c\udf10' : emoji === 'credit-card' ? '\ud83d\udcb3' : '\ud83d\udcf1'}
+                {emoji}
               </div>
               <h3 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 700, marginBottom: '12px' }}>{title}</h3>
               <p style={{ color: 'var(--muted)', fontSize: '14px', lineHeight: 1.6, marginBottom: '16px' }}>{text}</p>
