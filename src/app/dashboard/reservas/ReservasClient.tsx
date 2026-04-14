@@ -65,7 +65,7 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
       </p>
 
       {/* Stats Row */}
-      <div className="dash-stats" style={{ marginBottom: '32px' }}>
+      <div className="dash-stats" style={{ marginBottom: '32px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
         {/* Stat 1 */}
         <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', borderTop: '3px solid #7c3aed' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
@@ -89,23 +89,23 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
         </div>
 
         {/* Stat 3 */}
-        <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', borderTop: '3px solid #3b82f6' }}>
+        <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', borderTop: '3px solid #3b82f6', gridColumn: 'span 2' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <h3 style={{ color: 'var(--muted)', fontSize: '14px', fontWeight: 500 }}>Próximo check-in</h3>
             <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Calendar size={20} color="var(--purple)" />
             </div>
           </div>
-          <p style={{ color: '#3b82f6', fontSize: '40px', fontWeight: 800 }}>{proximoCheckinStr}</p>
+          <p style={{ color: '#3b82f6', fontSize: 'clamp(18px, 4vw, 40px)', fontWeight: 800 }}>{proximoCheckinStr}</p>
         </div>
       </div>
 
-      <div style={{ marginBottom: '20px', display: 'flex', gap: '16px', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', gap: '16px' }}>
+      <div style={{ marginBottom: '16px', display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', width: '100%' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', width: '100%' }}>
           <select 
             value={filterProp}
             onChange={e => setFilterProp(e.target.value)}
-            style={filterSelectStyle}
+            style={{ ...filterSelectStyle, flex: '1 1 140px', minWidth: '140px' }}
           >
             <option value="all">Todas as cabanas</option>
             {properties.map(p => (
@@ -116,7 +116,7 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
           <select 
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value)}
-            style={filterSelectStyle}
+            style={{ ...filterSelectStyle, flex: '1 1 140px', minWidth: '140px' }}
           >
             <option value="all">Todos os status</option>
             <option value="active">Ativas (Pendentes, Confirmadas, Check-in)</option>
@@ -132,15 +132,17 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
           target="_blank"
           rel="noreferrer"
           style={{
-            padding: '8px 16px',
+            padding: '8px 14px',
             borderRadius: '8px',
             border: '1px solid var(--purple)',
             color: 'var(--purple)',
-            fontSize: '14px',
+            fontSize: '13px',
             fontWeight: 500,
             cursor: 'pointer',
             textDecoration: 'none',
-            display: 'inline-block'
+            display: 'inline-block',
+            whiteSpace: 'nowrap',
+            flexShrink: 0
           }}
         >
           Nova reserva manual
@@ -153,7 +155,8 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
         borderRadius: '12px',
         overflow: 'hidden'
       }}>
-        <div style={{ overflowX: 'auto' }}>
+        <div className="bookings-table-wrapper" style={{ width: '100%' }}>
+          <div style={{ overflowX: 'auto', width: '100%' }}>
           <table className="reservas-table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
             <thead>
               <tr style={{ backgroundColor: 'rgba(13, 13, 26, 0.5)' }}>
@@ -224,40 +227,27 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
               )}
             </tbody>
           </table>
-          <div className="reservas-cards" style={{ padding: '16px' }}>
-            {filtered.map(booking => (
-              <a key={booking.id} href={`/dashboard/reservas/${booking.id}`} style={{
-                display: 'block', textDecoration: 'none',
-                backgroundColor: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderLeft: '3px solid var(--purple)',
-                borderRadius: '10px', padding: '14px 16px',
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <div>
-                    <p style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600 }}>{booking.guest_name}</p>
-                    <p style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '2px' }}>{booking.properties?.name}</p>
-                  </div>
-                  <StatusBadge status={booking.status} />
-                </div>
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  <div>
-                    <p style={{ color: 'var(--muted)', fontSize: '11px' }}>Check-in</p>
-                    <p style={{ color: 'var(--text)', fontSize: '13px' }}>{formatDate(booking.check_in)}</p>
-                  </div>
-                  <div>
-                    <p style={{ color: 'var(--muted)', fontSize: '11px' }}>Total</p>
-                    <p style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: 600 }}>{formatCurrency(booking.total_amount)}</p>
-                  </div>
-                </div>
-              </a>
-            ))}
-            {filtered.length === 0 && (
-              <div style={{ padding: '24px', textAlign: 'center' }}>
-                <p style={{ color: 'var(--muted)', fontSize: '14px' }}>Nenhuma reserva encontrada.</p>
-              </div>
-            )}
           </div>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="bookings-mobile-cards">
+          {filtered.map(booking => (
+            <a key={booking.id} href={`/dashboard/reservas/${booking.id}`} className="booking-card">
+              <p style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600 }}>{booking.properties?.name}</p>
+              <p style={{ color: 'var(--muted)', fontSize: '13px' }}>{booking.guest_name}</p>
+              <p style={{ color: 'var(--muted)', fontSize: '12px' }}>{formatDate(booking.check_in)}</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                <StatusBadge status={booking.status} />
+                <p style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: 600 }}>{formatCurrency(booking.total_amount)}</p>
+              </div>
+            </a>
+          ))}
+          {filtered.length === 0 && (
+            <div style={{ padding: '24px', textAlign: 'center' }}>
+              <p style={{ color: 'var(--muted)', fontSize: '14px' }}>Nenhuma reserva encontrada.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

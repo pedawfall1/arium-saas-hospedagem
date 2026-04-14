@@ -78,7 +78,7 @@ export default function AriumDashboardPage() {
         Visão geral da plataforma Arium
       </p>
 
-      <div style={{
+      <div className="arium-stats" style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
         gap: '16px',
@@ -105,6 +105,7 @@ export default function AriumDashboardPage() {
         borderRadius: '12px',
         overflow: 'hidden'
       }}>
+        <div style={{ overflowX: 'auto', width: '100%' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: 'rgba(13, 13, 26, 0.5)' }}>
@@ -158,6 +159,7 @@ export default function AriumDashboardPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

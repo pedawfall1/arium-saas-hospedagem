@@ -176,8 +176,8 @@ export default async function TenantDashboardPage() {
           <div className="stat-card-inner" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', borderTop: '3px solid #3b82f6', height: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '8px' }}>Próximo check-in</p>
-                <p className="stat-number" style={{ fontSize: '26px', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: '#3b82f6', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', paddingRight: '8px' }}>{nextCheckin}</p>
+                <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '8px' }}>Check-in</p>
+                <p className="stat-number" style={{ fontSize: 'clamp(20px, 5vw, 26px)', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: '#3b82f6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nextCheckin}</p>
               </div>
               <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'rgba(59,130,246,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(59,130,246,0.2)', flexShrink: 0 }}>
                 <Calendar size={20} color="#60a5fa" />

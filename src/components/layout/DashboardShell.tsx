@@ -1,12 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from '@/components/layout/Sidebar'
 import Image from 'next/image'
 import { Menu, X } from 'lucide-react'
 
 export default function DashboardShell({ tenant, children }: { tenant: any, children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [theme, setTheme] = useState<'dark'|'light'>('dark')
+
+  useEffect(() => {
+    const saved = localStorage.getItem('theme') || 'dark'
+    setTheme(saved as 'dark'|'light')
+    document.documentElement.setAttribute('data-theme', saved)
+  }, [])
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    document.documentElement.setAttribute('data-theme', next)
+    localStorage.setItem('theme', next)
+  }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
@@ -18,6 +32,17 @@ export default function DashboardShell({ tenant, children }: { tenant: any, chil
         backgroundColor: 'var(--sidebar)',
         borderRight: '1px solid var(--border)',
       }} className="md-sidebar">
+        <button
+          onClick={toggleTheme}
+          style={{
+            position: 'absolute', top: '16px', right: '16px',
+            background: 'none', border: '1px solid var(--border)',
+            borderRadius: '8px', padding: '6px 10px', cursor: 'pointer',
+            color: 'var(--muted)', fontSize: '16px', zIndex: 50
+          }}
+        >
+          {theme === 'dark' ? '☀️' : '🌙'}
+        </button>
         <Sidebar
           userName={tenant.business_name}
           userEmail={tenant.email}
@@ -41,6 +66,16 @@ export default function DashboardShell({ tenant, children }: { tenant: any, chil
         </a>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ color: 'var(--muted)', fontSize: '12px' }}>{tenant.business_name}</span>
+          <button
+            onClick={toggleTheme}
+            style={{
+              background: 'none', border: '1px solid var(--border)',
+              borderRadius: '8px', padding: '6px 10px', cursor: 'pointer',
+              color: 'var(--muted)', fontSize: '16px'
+            }}
+          >
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             style={{

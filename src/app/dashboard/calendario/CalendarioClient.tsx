@@ -20,6 +20,8 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
   const [showBlockForm, setShowBlockForm] = useState(false)
   const [blockData, setBlockData] = useState({ date: '', property_id: properties[0]?.id || '', reason: '' })
   const [loading, setLoading] = useState(false)
+  const [mobileView, setMobileView] = useState<'grid'|'list'>('list')
+  const [filterProperty, setFilterProperty] = useState<string>('all')
 
   const monthStart = startOfMonth(currentMonth)
   const monthEnd = endOfMonth(monthStart)
@@ -143,7 +145,7 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
       <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden' }}>
         
         {/* Month header row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 28px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'clamp(12px, 3vw, 24px) clamp(12px, 3vw, 28px)', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <h2 style={{ color: 'var(--text)', fontSize: '20px', fontWeight: 700, textTransform: 'capitalize' }}>
               {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
@@ -165,14 +167,25 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
           </div>
           <button 
             onClick={() => setShowBlockForm(true)}
-            style={{ backgroundColor: 'var(--purple)', color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+            style={{ backgroundColor: 'var(--purple)', color: 'white', border: 'none', borderRadius: '8px', padding: 'clamp(6px, 2vw, 8px) clamp(8px, 2vw, 16px)', fontSize: 'clamp(11px, 2.5vw, 13px)', fontWeight: 600, cursor: 'pointer' }}
           >
             Bloquear data
           </button>
+          <button onClick={() => setMobileView(v => v === 'grid' ? 'list' : 'grid')} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', cursor: 'pointer' }} className="md-only-hide">
+            {mobileView === 'list' ? '📅 Grade' : '📋 Lista'}
+          </button>
+        </div>
+
+        {/* Property Filter Bar */}
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button onClick={() => setFilterProperty('all')} style={{ padding: '6px 14px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, border: '1px solid var(--border)', backgroundColor: filterProperty === 'all' ? 'var(--purple)' : 'transparent', color: filterProperty === 'all' ? 'white' : 'var(--muted)', cursor: 'pointer' }}>Todas</button>
+          {properties.map((p: any, i: number) => (
+            <button key={p.id} onClick={() => setFilterProperty(p.id)} style={{ padding: '6px 14px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, border: '1px solid var(--border)', backgroundColor: filterProperty === p.id ? (i === 0 ? '#7c3aed' : '#f97b00') : 'transparent', color: filterProperty === p.id ? 'white' : 'var(--muted)', cursor: 'pointer' }}>{p.name}</button>
+          ))}
         </div>
 
         {/* Weekday header row */}
-        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <div className={`cal-grid-wrapper${mobileView === 'list' ? ' mobile-list' : ''}`} style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
           <div style={{ minWidth: '340px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid var(--border)' }}>
               {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
@@ -213,7 +226,7 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
                 onClick={() => setSelectedDay({ dateStr, dayBookings, blocks })}
                 className="cal-cell"
                 style={{ 
-                  minHeight: '100px', padding: '10px 12px',
+                  minHeight: 'clamp(48px, 10vw, 100px)', padding: '10px 12px',
                   borderRight: '1px solid var(--border)',
                   borderBottom: '1px solid var(--border)',
                   cursor: 'pointer', position: 'relative',
@@ -232,10 +245,10 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
                   </span>
                 )}
                 
-                {booking && (
+                {booking && (filterProperty === 'all' || booking.property_id === filterProperty) && (
                   <div className="cal-pill" style={{
                     position: 'absolute', bottom: '8px', left: '8px', right: '8px',
-                    padding: '2px 6px', borderRadius: '4px', fontSize: '11px',
+                    padding: '2px 6px', borderRadius: '4px', fontSize: 'clamp(9px, 2vw, 11px)',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     backgroundColor: propertyIndex(booking.property_id) === 0 ? 'rgba(124,58,237,0.3)' : 'rgba(249,115,22,0.3)',
                     color: propertyIndex(booking.property_id) === 0 ? 'var(--accent)' : '#fb923c',
@@ -244,12 +257,12 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
                   </div>
                 )}
                 
-                {!booking && isBlocked && (
+                {!booking && isBlocked && blocks.some((b: any) => filterProperty === 'all' || b.property_id === filterProperty) && (
                   <div className="cal-pill" style={{
                     position: 'absolute', bottom: '8px', left: '8px', right: '8px',
-                    padding: '2px 6px', borderRadius: '4px', fontSize: '11px',
+                    padding: '2px 6px', borderRadius: '4px', fontSize: 'clamp(9px, 2vw, 11px)',
                     backgroundColor: 'rgba(239,68,68,0.2)', color: '#f87171',
-                    textAlign: 'center',
+                    textAlign: 'center', overflow: 'hidden',
                   }}>
                     Bloqueado
                   </div>
@@ -259,6 +272,28 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
           })}
             </div>
           </div>
+        </div>
+
+        {/* List View (Mobile) */}
+        <div className="cal-list-view" style={{ display: mobileView === 'list' ? 'block' : 'none' }}>
+          {calendarDays.filter(d => isSameMonth(d, currentMonth)).map(day => {
+            const { bookings: dayBookings, blocks } = getDayInfo(day)
+            if (dayBookings.length === 0 && blocks.length === 0) return null
+            if (filterProperty !== 'all' && !dayBookings.some((b: any) => b.property_id === filterProperty) && !blocks.some((b: any) => b.property_id === filterProperty)) return null
+            return (
+              <div key={day.toISOString()} onClick={() => setSelectedDay({ dateStr: format(day, 'yyyy-MM-dd'), dayBookings, blocks })}
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer', borderLeft: blocks.length > 0 ? '3px solid #ef4444' : `3px solid ${propertyIndex(dayBookings[0]?.property_id) === 0 ? '#7c3aed' : '#f97b00'}` }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: 'var(--purple-dim)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ color: 'var(--accent)', fontSize: '16px', fontWeight: 700 }}>{format(day, 'd')}</span>
+                  <span style={{ color: 'var(--muted)', fontSize: '9px', textTransform: 'uppercase' }}>{format(day, 'EEE', { locale: ptBR })}</span>
+                </div>
+                <div style={{ flex: 1 }}>
+                  {dayBookings.map((b: any) => <p key={b.id} style={{ color: 'var(--text)', fontSize: '13px', fontWeight: 600 }}>{b.guest_name}</p>)}
+                  {blocks.map((b: any) => <p key={b.id} style={{ color: '#f87171', fontSize: '13px' }}>{b.reason || 'Reservado'}</p>)}
+                </div>
+              </div>
+            )
+          })}
         </div>
 
         {/* Legend */}

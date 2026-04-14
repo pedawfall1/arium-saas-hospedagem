@@ -51,6 +51,7 @@ export default function ClientesPage() {
         borderRadius: '12px',
         overflow: 'hidden'
       }}>
+        <div style={{ overflowX: 'auto', width: '100%' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: 'rgba(13, 13, 26, 0.5)' }}>
@@ -78,7 +79,7 @@ export default function ClientesPage() {
               onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
               onClick={() => router.push(`/arium/clientes/${tenant.id}`)}
               >
-                <td style={{ padding: '16px 24px', color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>
+                <td style={{ padding: '16px 24px', color: 'var(--text)', fontSize: '14px', fontWeight: 500, whiteSpace: 'nowrap' }}>
                   {tenant.business_name}
                 </td>
                 <td style={{ padding: '16px 24px', color: 'var(--text)', fontSize: '14px' }}>
@@ -110,6 +111,7 @@ export default function ClientesPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )
