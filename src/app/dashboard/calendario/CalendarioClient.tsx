@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 import { ChevronLeft, ChevronRight, Ban, X } from "lucide-react"
@@ -14,14 +14,25 @@ import { useRouter } from "next/navigation"
 export function CalendarioClient({ properties, bookings, blockedDates, tenantName }: any) {
   const router = useRouter()
   const supabase = createClient()
+
+  const sortedProperties = [...properties].sort((a: any, b: any) => {
+    const doceId = '5be242bc-103f-4488-a9cc-fa8c240579ca'
+    if (a.id === doceId) return -1
+    if (b.id === doceId) return 1
+    return 0
+  })
   
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()))
   const [selectedDay, setSelectedDay] = useState<any>(null)
   const [showBlockForm, setShowBlockForm] = useState(false)
-  const [blockData, setBlockData] = useState({ date: '', property_id: properties[0]?.id || '', reason: '' })
+  const [filterProperty, setFilterProperty] = useState<string>(sortedProperties[0]?.id || '')
+  const [blockData, setBlockData] = useState({ date: '', property_id: filterProperty, reason: '' })
   const [loading, setLoading] = useState(false)
-  const [mobileView, setMobileView] = useState<'grid'|'list'>('list')
-  const [filterProperty, setFilterProperty] = useState<string>('all')
+  const [mobileView, setMobileView] = useState<'grid'|'list'>('grid')
+
+  useEffect(() => {
+    setBlockData(prev => ({ ...prev, property_id: filterProperty }))
+  }, [filterProperty])
 
   const monthStart = startOfMonth(currentMonth)
   const monthEnd = endOfMonth(monthStart)
@@ -33,12 +44,15 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
   const getDayInfo = (date: Date) => {
     const dayBookings = bookings.filter((b: any) => {
       if (b.status === 'cancelled') return false
+      if (filterProperty && b.property_id !== filterProperty) return false
       const formattedDay = format(date, 'yyyy-MM-dd')
       return formattedDay >= b.check_in && formattedDay < b.check_out
     })
     
     const formattedDate = format(date, 'yyyy-MM-dd')
-    const dayBlocks = blockedDates.filter((b: any) => b.date === formattedDate)
+    const dayBlocks = blockedDates.filter((b: any) => 
+      b.date === formattedDate && (!filterProperty || b.property_id === filterProperty)
+    )
     
     return { bookings: dayBookings, blocks: dayBlocks }
   }
@@ -46,10 +60,19 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
   const handleBlockSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    await supabase.from('blocked_dates').insert([blockData])
+    const { data, error } = await supabase.from('blocked_dates').insert([{
+      property_id: blockData.property_id,
+      date: blockData.date,
+      reason: blockData.reason || null,
+    }]).select()
+    console.log('Insert result:', data, error)
+    if (error) {
+      alert('Erro: ' + error.message)
+    } else {
+      setShowBlockForm(false)
+      window.location.reload()
+    }
     setLoading(false)
-    setShowBlockForm(false)
-    router.refresh()
   }
 
   const handleUnblock = async (id: string) => {
@@ -58,10 +81,10 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
     await supabase.from('blocked_dates').delete().eq('id', id)
     setLoading(false)
     setSelectedDay(null)
-    router.refresh()
+    window.location.reload()
   }
 
-  const propertyIndex = (pid: string) => properties.findIndex((p: any) => p.id === pid)
+  const propertyIndex = (pid: string) => sortedProperties.findIndex((p: any) => p.id === pid)
 
   return (
     <div style={{ width: '100%' }}>
@@ -88,11 +111,11 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
           <div style={{
             position: 'fixed', top: '50%', left: '50%',
             transform: 'translate(-50%, -50%)',
-            zIndex: 50, width: '100%', maxWidth: '440px',
+            zIndex: 50, width: '90%', maxWidth: '380px',
             backgroundColor: 'var(--surface)',
             border: '1px solid var(--border)',
-            borderRadius: '16px', padding: '28px',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+            borderRadius: '16px', padding: '24px',
+            boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
           }}>
             <h3 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '20px' }}>
               Bloquear data
@@ -106,7 +129,7 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
                   onChange={e => setBlockData({...blockData, property_id: e.target.value})}
                   style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }}
                 >
-                  {properties.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  {sortedProperties.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
               <div>
@@ -145,42 +168,33 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
       <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden' }}>
         
         {/* Month header row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'clamp(12px, 3vw, 24px) clamp(12px, 3vw, 28px)', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <h2 style={{ color: 'var(--text)', fontSize: '20px', fontWeight: 700, textTransform: 'capitalize' }}>
               {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
             </h2>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button 
-                onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '6px 12px', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px' }}
-              >
-                &lt;
-              </button>
-              <button 
-                onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '6px 12px', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px' }}
-              >
-                &gt;
-              </button>
-            </div>
+            <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', width: '32px', height: '32px', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
+            <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', width: '32px', height: '32px', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
           </div>
-          <button 
-            onClick={() => setShowBlockForm(true)}
-            style={{ backgroundColor: 'var(--purple)', color: 'white', border: 'none', borderRadius: '8px', padding: 'clamp(6px, 2vw, 8px) clamp(8px, 2vw, 16px)', fontSize: 'clamp(11px, 2.5vw, 13px)', fontWeight: 600, cursor: 'pointer' }}
-          >
-            Bloquear data
-          </button>
-          <button onClick={() => setMobileView(v => v === 'grid' ? 'list' : 'grid')} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', cursor: 'pointer' }} className="md-only-hide">
-            {mobileView === 'list' ? '📅 Grade' : '📋 Lista'}
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => setMobileView(v => v === 'grid' ? 'list' : 'grid')} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: '8px', padding: '8px 12px', fontSize: '13px', cursor: 'pointer' }} className="md-only-hide">
+              {mobileView === 'list' ? '📅 Grade' : '📋 Lista'}
+            </button>
+            <button 
+              onClick={() => setShowBlockForm(true)}
+              style={{ backgroundColor: 'var(--purple)', color: 'white', border: 'none', borderRadius: '8px', padding: '8px 18px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+            >
+              + Bloquear data
+            </button>
+          </div>
         </div>
 
         {/* Property Filter Bar */}
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button onClick={() => setFilterProperty('all')} style={{ padding: '6px 14px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, border: '1px solid var(--border)', backgroundColor: filterProperty === 'all' ? 'var(--purple)' : 'transparent', color: filterProperty === 'all' ? 'white' : 'var(--muted)', cursor: 'pointer' }}>Todas</button>
-          {properties.map((p: any, i: number) => (
-            <button key={p.id} onClick={() => setFilterProperty(p.id)} style={{ padding: '6px 14px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, border: '1px solid var(--border)', backgroundColor: filterProperty === p.id ? (i === 0 ? '#7c3aed' : '#f97b00') : 'transparent', color: filterProperty === p.id ? 'white' : 'var(--muted)', cursor: 'pointer' }}>{p.name}</button>
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '8px' }}>
+          {sortedProperties.map((p: any, i: number) => (
+            <button key={p.id} onClick={() => setFilterProperty(p.id)} style={{ padding: '8px 18px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, border: 'none', backgroundColor: filterProperty === p.id ? (i === 0 ? 'rgba(124,58,237,0.2)' : 'rgba(249,115,22,0.2)') : 'var(--bg)', color: filterProperty === p.id ? (i === 0 ? 'var(--accent)' : '#fb923c') : 'var(--muted)', cursor: 'pointer', transition: 'all 0.15s' }}>
+              {p.name}
+            </button>
           ))}
         </div>
 
@@ -207,10 +221,13 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
             // Determine styling status
             const booking = bookings.find((b: any) =>
               b.status !== 'cancelled' &&
+              b.property_id === filterProperty &&
               day >= parseISO(b.check_in) &&
               day < parseISO(b.check_out)
             )
-            const isBlocked = blockedDates.some((d: any) => isSameDay(parseISO(d.date), day))
+            const isBlocked = blockedDates.some((d: any) =>
+              isSameDay(parseISO(d.date), day) && d.property_id === filterProperty
+            )
 
             const cellBackgroundColor = booking
               ? propertyIndex(booking.property_id) === 0
@@ -296,39 +313,26 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
           })}
         </div>
 
-        {/* Legend */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', padding: '16px 24px', borderTop: '1px solid var(--border)' }}>
-          {properties.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--muted)' }}>
-              <div style={{ width: '10px', height: '10px', borderRadius: '3px', backgroundColor: '#7c3aed' }} />
-              <span>{properties[0]?.name}</span>
-            </div>
-          )}
-          {properties.length > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--muted)' }}>
-              <div style={{ width: '10px', height: '10px', borderRadius: '3px', backgroundColor: '#f97b00' }} />
-              <span>{properties[1]?.name}</span>
-            </div>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--muted)' }}>
-            <div style={{ width: '10px', height: '10px', borderRadius: '3px', backgroundColor: '#ef4444' }} />
-            <span>Bloqueado</span>
-          </div>
-        </div>
+
 
       </div>
 
       {/* Inline Detail Panel */}
       {selectedDay && (selectedDay.dayBookings.length > 0 || selectedDay.blocks.length > 0) && (
         <div className="mt-6 border rounded-xl p-6 relative" style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)' }}>
-          <button 
+          <button
             onClick={() => setSelectedDay(null)}
-            className="absolute top-4 right-4 text-[var(--muted)] hover:text-[var(--text)] transition-colors"
+            style={{
+              position: 'absolute', top: '16px', right: '16px',
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--muted)', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', padding: '4px', lineHeight: 1,
+            }}
           >
             <X size={20} />
           </button>
           <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text)' }}>
-            Foco: {format(parseISO(selectedDay.dateStr), 'dd/MM/yyyy')}
+            Data: {format(parseISO(selectedDay.dateStr), 'dd/MM/yyyy')}
           </h3>
           
           <div className="grid gap-4 md:grid-cols-2">
@@ -339,7 +343,7 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
                   <StatusBadge status={b.status} />
                 </div>
                 <p className="text-sm" style={{ color: 'var(--muted)' }}>
-                  {b.properties?.name || properties.find((p:any) => p.id === b.property_id)?.name}
+                  {b.properties?.name || sortedProperties.find((p:any) => p.id === b.property_id)?.name}
                 </p>
                 <p className="text-sm mb-3" style={{ color: 'var(--muted)' }}>
                   Entra: {formatDate(b.check_in)} | Sai: {formatDate(b.check_out)}
@@ -351,19 +355,21 @@ export function CalendarioClient({ properties, bookings, blockedDates, tenantNam
             ))}
 
             {selectedDay.blocks.map((block: any) => (
-              <div key={block.id} className="border border-red-500/20 bg-red-500/10 rounded-lg p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <p className="font-medium text-red-500 text-lg">Data Bloqueada</p>
-                  <Ban className="text-red-500 opacity-50" size={20} />
+              <div key={block.id} style={{ border: '1px solid rgba(239,68,68,0.3)', backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: '12px', padding: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <p style={{ color: '#f87171', fontWeight: 600, fontSize: '15px' }}>Data Bloqueada</p>
                 </div>
-                <p className="text-sm mb-1 text-red-400">
-                  Cabana: {properties.find((p:any) => p.id === block.property_id)?.name}
+                <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: block.reason ? '8px' : '16px' }}>
+                  Cabana: {sortedProperties.find((p:any) => p.id === block.property_id)?.name}
                 </p>
-                {block.reason && <p className="text-sm text-red-400 mb-3 block">Motivo: {block.reason}</p>}
-                
-                <Button onClick={() => handleUnblock(block.id)} variant="danger" size="sm" className="w-full mt-2" disabled={loading}>
-                  {loading ? 'Processando...' : 'Desbloquear Data'}
-                </Button>
+                {block.reason && <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '16px' }}>Motivo: {block.reason}</p>}
+                <button
+                  onClick={() => handleUnblock(block.id)}
+                  disabled={loading}
+                  style={{ width: '100%', padding: '10px', backgroundColor: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: '#f87171', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+                >
+                  {loading ? 'Processando...' : '🔓 Desbloquear esta data'}
+                </button>
               </div>
             ))}
           </div>

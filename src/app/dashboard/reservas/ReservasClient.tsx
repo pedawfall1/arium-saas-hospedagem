@@ -127,14 +127,13 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
           </select>
         </div>
 
-        <a 
-          href={`https://wa.me/5549992570611?text=${encodeURIComponent('Olá, gostaria de registrar uma reserva manual.')}`}
-          target="_blank"
-          rel="noreferrer"
+        <button 
+          onClick={() => router.push('/dashboard/reservas/nova')}
           style={{
             padding: '8px 14px',
             borderRadius: '8px',
             border: '1px solid var(--purple)',
+            backgroundColor: 'transparent',
             color: 'var(--purple)',
             fontSize: '13px',
             fontWeight: 500,
@@ -146,7 +145,7 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
           }}
         >
           Nova reserva manual
-        </a>
+        </button>
       </div>
 
       <div style={{
