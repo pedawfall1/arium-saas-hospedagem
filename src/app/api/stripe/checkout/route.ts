@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { z } from 'zod'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2026-03-25.dahlia',
@@ -11,13 +12,25 @@ const PRICE_MAP: Record<string, string> = {
   premium: process.env.STRIPE_PRICE_PREMIUM!,
 }
 
+const checkoutSchema = z.object({
+  plan: z.enum(['essencial', 'plus', 'premium']),
+})
+
 export async function POST(req: NextRequest) {
   try {
     console.log('Stripe API: Iniciando checkout')
 
-    const { plan } = await req.json()
+    const body = await req.json()
+    const validation = checkoutSchema.safeParse(body)
+
+    if (!validation.success) {
+      console.error('Stripe API: Validação falhou:', validation.error)
+      return NextResponse.json({ error: 'Plano inválido' }, { status: 400 })
+    }
+
+    const { plan } = validation.data
     console.log('Stripe API: Plano solicitado:', plan)
-    
+
     const checkoutUrl = PRICE_MAP[plan]
     console.log('Stripe API: URL do checkout:', checkoutUrl)
 
