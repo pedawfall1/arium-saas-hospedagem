@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { RelatoriosClient } from "./RelatoriosClient"
 
+export const revalidate = 30
+
 export default async function RelatoriosPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import { CalendarioClient } from "./CalendarioClient"
 
+export const revalidate = 30
+
 export default async function CalendarioPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -26,20 +28,14 @@ export default async function CalendarioPage() {
 
   let bookings: any[] = []
   let blockedDates: any[] = []
-  
-  if (propertyIds.length > 0) {
-    const { data: bookingsRes } = await supabase
-      .from('bookings')
-      .select('*')
-      .in('property_id', propertyIds)
-    
-    bookings = bookingsRes || []
 
-    const { data: blocksRes } = await supabase
-      .from('blocked_dates')
-      .select('*')
-      .in('property_id', propertyIds)
-      
+  if (propertyIds.length > 0) {
+    const [{ data: bookingsRes }, { data: blocksRes }] = await Promise.all([
+      supabase.from('bookings').select('*').in('property_id', propertyIds),
+      supabase.from('blocked_dates').select('*').in('property_id', propertyIds)
+    ])
+
+    bookings = bookingsRes || []
     blockedDates = blocksRes || []
   }
 

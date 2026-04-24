@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { PropriedadesClient } from "./PropriedadesClient"
 
+export const revalidate = 30
+
 export default async function PropriedadesPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -27,16 +29,11 @@ export default async function PropriedadesPage() {
   let blocks: any[] = []
 
   if (propertyIds.length > 0) {
-    const { data: rulesData } = await supabase
-      .from('pricing_rules')
-      .select('*')
-      .in('property_id', propertyIds)
+    const [{ data: rulesData }, { data: blocksData }] = await Promise.all([
+      supabase.from('pricing_rules').select('*').in('property_id', propertyIds),
+      supabase.from('blocked_dates').select('*').in('property_id', propertyIds)
+    ])
     rules = rulesData || []
-
-    const { data: blocksData } = await supabase
-      .from('blocked_dates')
-      .select('*')
-      .in('property_id', propertyIds)
     blocks = blocksData || []
   }
 

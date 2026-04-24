@@ -4,6 +4,8 @@ import { BookOpen, Calendar, Settings2, BarChart2, ChevronRight, TrendingUp } fr
 import Link from "next/link"
 import { formatCurrency, formatDate } from "@/lib/utils"
 
+export const revalidate = 30
+
 export default async function TenantDashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

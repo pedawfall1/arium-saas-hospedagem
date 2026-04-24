@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { ReservasClient } from "./ReservasClient"
 
+export const revalidate = 30
+
 export default async function ReservasPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

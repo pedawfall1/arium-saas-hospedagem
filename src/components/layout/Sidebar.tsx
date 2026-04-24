@@ -76,6 +76,7 @@ export default function Sidebar({ userName, userEmail, role, onNavClick }: Sideb
             <Link
               key={href}
               href={href}
+              prefetch={true}
               onClick={onNavClick}
               onMouseEnter={() => setHoveredLink(href)}
               onMouseLeave={() => setHoveredLink(null)}
