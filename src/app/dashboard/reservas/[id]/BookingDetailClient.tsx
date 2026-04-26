@@ -3,27 +3,44 @@
 import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/Button"
-import { StatusBadge } from "@/components/ui/Badge"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { Modal } from "@/components/ui/Modal"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
+
+const cardStyle = {
+  backgroundColor: 'var(--surface)',
+  border: '1px solid var(--border)',
+  borderRadius: '16px',
+  padding: '20px 24px',
+  marginBottom: '16px',
+}
+
+const labelStyle = {
+  color: 'var(--muted)',
+  fontSize: '13px',
+  marginBottom: '4px',
+}
+
+const valueStyle = {
+  color: 'var(--text)',
+  fontSize: '15px',
+  fontWeight: 500,
+}
 
 export function BookingDetailClient({ booking, tenantName }: any) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
-  const [modalType, setModalType] = useState<string | null>(null)
   const [notes, setNotes] = useState(booking.notes || "")
   const [notesSaving, setNotesSaving] = useState(false)
+  const [status, setStatus] = useState(booking.status)
+  const [paymentStatus, setPaymentStatus] = useState(booking.payment_status)
 
-  const updateStatus = async (status: string) => {
+  const handleDelete = async () => {
+    if (!confirm('Tem certeza que deseja excluir esta reserva? Esta ação não pode ser desfeita.')) return
     setLoading(true)
-    await supabase.from('bookings').update({ status }).eq('id', booking.id)
-    setModalType(null)
-    setLoading(false)
-    router.refresh()
+    await supabase.from('bookings').delete().eq('id', booking.id)
+    router.push('/dashboard/reservas')
   }
 
   const saveNotes = async () => {
@@ -33,143 +50,293 @@ export function BookingDetailClient({ booking, tenantName }: any) {
     router.refresh()
   }
 
+  const updateStatus = async (newStatus: string) => {
+    setLoading(true)
+    await supabase.from('bookings').update({ status: newStatus }).eq('id', booking.id)
+    setStatus(newStatus)
+    setLoading(false)
+    router.refresh()
+  }
+
+  const updatePaymentStatus = async (newStatus: string) => {
+    setLoading(true)
+    await supabase.from('bookings').update({ payment_status: newStatus }).eq('id', booking.id)
+    setPaymentStatus(newStatus)
+    setLoading(false)
+    router.refresh()
+  }
+
   const handleWhatsApp = () => {
     const phone = booking.guest_phone.replace(/\D/g, '')
     window.open(`https://wa.me/${phone}`, '_blank')
   }
 
-  const isActive = booking.status !== 'cancelled' && booking.status !== 'completed'
+  const checkIn = new Date(booking.check_in)
+  const checkOut = new Date(booking.check_out)
+  const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
+
+  const statusColors: Record<string, string> = {
+    pending: '#f59e0b',
+    confirmed: '#22c55e',
+    checked_in: '#3b82f6',
+    completed: '#6b7280',
+    cancelled: '#ef4444',
+  }
+
+  const paymentStatusColors: Record<string, string> = {
+    pending: '#f59e0b',
+    deposit_paid: '#22c55e',
+    fully_paid: '#3b82f6',
+    overdue: '#ef4444',
+  }
 
   return (
-    <div style={{ maxWidth: '1200px' }}>
-      <h1 style={{ color: 'var(--text)', fontSize: '28px', fontWeight: 700, marginBottom: '8px' }}>
-        Reserva: {booking.guest_name}
-      </h1>
-      <p style={{ color: 'var(--muted)', fontSize: '15px', marginBottom: '40px' }}>
-        Detalhes completos da estadia
-      </p>
+    <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+      {/* Back link */}
+      <Link
+        href="/dashboard/reservas"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '8px',
+          color: 'var(--muted)',
+          fontSize: '14px',
+          textDecoration: 'none',
+          marginBottom: '24px',
+        }}
+      >
+        <ArrowLeft size={16} /> Voltar para Reservas
+      </Link>
 
-      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Link href="/dashboard/reservas" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--muted)', fontSize: '14px', textDecoration: 'none' }}>
-          <ArrowLeft size={16} /> Voltar para Reservas
-        </Link>
+      {/* Header card */}
+      <div style={cardStyle}>
+        <h1 style={{ color: 'var(--text)', fontSize: '24px', fontWeight: 700, marginBottom: '8px' }}>
+          {booking.guest_name}
+        </h1>
+        <p style={{ color: 'var(--muted)', fontSize: '14px' }}>
+          {booking.properties?.name} · {formatDate(booking.check_in)} → {formatDate(booking.check_out)} · {nights} noites
+        </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-2 space-y-6">
-          <div className="rounded-xl border p-6 space-y-6" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
-            <div className="flex justify-between items-start">
-              <div>
-                <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text)' }}>Detalhes do Hóspede</h2>
-                <p className="text-sm" style={{ color: 'var(--muted)' }}>Nome: <span className="font-medium" style={{ color: 'var(--text)' }}>{booking.guest_name}</span></p>
-                <p className="text-sm" style={{ color: 'var(--muted)' }}>Telefone: <span className="font-medium" style={{ color: 'var(--text)' }}>{booking.guest_phone}</span></p>
-                <p className="text-sm" style={{ color: 'var(--muted)' }}>E-mail: <span className="font-medium" style={{ color: 'var(--text)' }}>{booking.guest_email || '-'}</span></p>
-              </div>
-              <Button onClick={handleWhatsApp} variant="outline" className="gap-2">
-                WhatsApp
-              </Button>
-            </div>
-
-            <hr style={{ borderColor: 'var(--border)' }} />
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm" style={{ color: 'var(--muted)' }}>Check-in</p>
-                <p className="font-medium text-lg" style={{ color: 'var(--text)' }}>{formatDate(booking.check_in)}</p>
-                <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>Check-out</p>
-                <p className="font-medium text-lg" style={{ color: 'var(--text)' }}>{formatDate(booking.check_out)}</p>
-              </div>
-              <div>
-                <p className="text-sm" style={{ color: 'var(--muted)' }}>Cabana</p>
-                <p className="font-medium" style={{ color: 'var(--text)' }}>{booking.properties?.name}</p>
-                <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>Hóspedes</p>
-                <p className="font-medium" style={{ color: 'var(--text)' }}>{booking.guests_count} pessoas</p>
-              </div>
-            </div>
+      {/* 2-column grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+        {/* Left card - Guest details */}
+        <div style={cardStyle}>
+          <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>
+            Detalhes do Hóspede
+          </h2>
+          <div style={{ marginBottom: '12px' }}>
+            <p style={labelStyle}>Nome</p>
+            <p style={valueStyle}>{booking.guest_name}</p>
           </div>
-
-          <div className="rounded-xl border p-6 space-y-4" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Observações</h2>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Adicione observações internas sobre a reserva..."
-              className="flex min-h-[100px] w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--purple)]"
-              style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)', color: 'var(--text)' }}
-            />
-            <div className="flex justify-end">
-              <Button onClick={saveNotes} disabled={notesSaving} size="sm">
-                {notesSaving ? "Salvando..." : "Salvar Observação"}
-              </Button>
-            </div>
+          <div style={{ marginBottom: '12px' }}>
+            <p style={labelStyle}>Telefone</p>
+            <a
+              href="#"
+              onClick={handleWhatsApp}
+              style={{ color: 'var(--purple)', fontSize: '15px', fontWeight: 500, textDecoration: 'none' }}
+            >
+              {booking.guest_phone}
+            </a>
           </div>
+          {booking.guest_email && (
+            <div>
+              <p style={labelStyle}>E-mail</p>
+              <p style={valueStyle}>{booking.guest_email}</p>
+            </div>
+          )}
         </div>
 
-        <div className="space-y-6">
-          <div className="rounded-xl border p-6 space-y-6" style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}>
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>Status da Reserva</h2>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm" style={{ color: 'var(--muted)' }}>Status Geral:</span>
-                <StatusBadge status={booking.status} />
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm" style={{ color: 'var(--muted)' }}>Pagamento:</span>
-                <StatusBadge status={booking.payment_status} />
-              </div>
-            </div>
-
-            <hr style={{ borderColor: 'var(--border)' }} />
-            
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm" style={{ color: 'var(--muted)' }}>Total:</span>
-                <span className="font-medium" style={{ color: 'var(--text)' }}>{formatCurrency(booking.total_amount)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm" style={{ color: 'var(--muted)' }}>Sinal:</span>
-                <span className="text-green-400 font-medium">{formatCurrency(booking.deposit_amount)}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm pt-2">
-                <span style={{ color: 'var(--muted)' }}>Restante no check-in:</span>
-                <span style={{ color: 'var(--muted)' }}>{formatCurrency(booking.total_amount - booking.deposit_amount)}</span>
-              </div>
-            </div>
-
-            {isActive && (
-              <div className="space-y-3 pt-4">
-                {booking.status !== 'checked_in' && (
-                  <Button onClick={() => setModalType('check_in')} className="w-full bg-blue-600 hover:bg-blue-700 hover:text-white text-white">
-                    Marcar Check-in
-                  </Button>
-                )}
-                <Button onClick={() => setModalType('completed')} className="w-full bg-green-600 hover:bg-green-700 hover:text-white text-white">
-                  Marcar Concluído
-                </Button>
-                <Button onClick={() => setModalType('cancelled')} variant="danger" className="w-full">
-                  Cancelar Reserva
-                </Button>
-              </div>
-            )}
+        {/* Right card - Stay details */}
+        <div style={cardStyle}>
+          <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>
+            Detalhes da Estadia
+          </h2>
+          <div style={{ marginBottom: '12px' }}>
+            <p style={labelStyle}>Check-in</p>
+            <p style={valueStyle}>{formatDate(booking.check_in)}</p>
+          </div>
+          <div style={{ marginBottom: '12px' }}>
+            <p style={labelStyle}>Check-out</p>
+            <p style={valueStyle}>{formatDate(booking.check_out)}</p>
+          </div>
+          <div style={{ marginBottom: '12px' }}>
+            <p style={labelStyle}>Hóspedes</p>
+            <p style={valueStyle}>{booking.guests_count} pessoa{booking.guests_count !== 1 ? 's' : ''}</p>
+          </div>
+          <div>
+            <p style={labelStyle}>Cabana</p>
+            <p style={valueStyle}>{booking.properties?.name}</p>
           </div>
         </div>
       </div>
 
-      <Modal isOpen={!!modalType} onClose={() => setModalType(null)} title="Confirmar Ação">
-        <div className="py-4" style={{ color: 'var(--text)' }}>
-          Você tem certeza que deseja {modalType === 'cancelled' ? 'cancelar' : modalType === 'check_in' ? 'marcar o check-in' : 'marcar como concluída'} esta reserva?
+      {/* Values card */}
+      <div style={cardStyle}>
+        <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>
+          Valores
+        </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+          <span style={{ color: 'var(--muted)', fontSize: '14px' }}>Total</span>
+          <span style={{ color: 'var(--text)', fontSize: '15px', fontWeight: 600 }}>
+            {formatCurrency(booking.total_amount)}
+          </span>
         </div>
-        <div className="flex justify-end gap-3 mt-2">
-          <Button variant="ghost" onClick={() => setModalType(null)}>Voltar</Button>
-          <Button 
-            variant={modalType === 'cancelled' ? 'danger' : 'default'} 
-            onClick={() => updateStatus(modalType === 'cancelled' ? 'cancelled' : modalType === 'check_in' ? 'checked_in' : 'completed')}
-            disabled={loading}
-          >
-            {loading ? "Processando..." : "Confirmar"}
-          </Button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+          <span style={{ color: 'var(--muted)', fontSize: '14px' }}>Sinal</span>
+          <span style={{ color: '#22c55e', fontSize: '15px', fontWeight: 600 }}>
+            {formatCurrency(booking.deposit_amount)}
+          </span>
         </div>
-      </Modal>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ color: 'var(--muted)', fontSize: '14px' }}>Restante no check-in</span>
+          <span style={{ color: 'var(--muted)', fontSize: '15px' }}>
+            {formatCurrency(booking.total_amount - booking.deposit_amount)}
+          </span>
+        </div>
+      </div>
+
+      {/* Status card */}
+      <div style={cardStyle}>
+        <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>
+          Status
+        </h2>
+        <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+          <div style={{ flex: 1 }}>
+            <p style={labelStyle}>Status Geral</p>
+            <select
+              value={status}
+              onChange={(e) => updateStatus(e.target.value)}
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg)',
+                color: 'var(--text)',
+                fontSize: '14px',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="pending">Pendente</option>
+              <option value="confirmed">Confirmada</option>
+              <option value="checked_in">Check-in realizado</option>
+              <option value="completed">Concluída</option>
+              <option value="cancelled">Cancelada</option>
+            </select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={labelStyle}>Pagamento</p>
+            <select
+              value={paymentStatus}
+              onChange={(e) => updatePaymentStatus(e.target.value)}
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg)',
+                color: 'var(--text)',
+                fontSize: '14px',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="pending">Pendente</option>
+              <option value="deposit_paid">Sinal pago</option>
+              <option value="fully_paid">Pago integralmente</option>
+              <option value="overdue">Atrasado</option>
+            </select>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{
+            padding: '6px 12px',
+            borderRadius: '6px',
+            backgroundColor: `${statusColors[status]}20`,
+            color: statusColors[status],
+            fontSize: '12px',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+          }}>
+            {status === 'pending' ? 'Pendente' : status === 'confirmed' ? 'Confirmada' : status === 'checked_in' ? 'Check-in realizado' : status === 'completed' ? 'Concluída' : 'Cancelada'}
+          </div>
+          <div style={{
+            padding: '6px 12px',
+            borderRadius: '6px',
+            backgroundColor: `${paymentStatusColors[paymentStatus]}20`,
+            color: paymentStatusColors[paymentStatus],
+            fontSize: '12px',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+          }}>
+            {paymentStatus === 'pending' ? 'Pendente' : paymentStatus === 'deposit_paid' ? 'Sinal pago' : paymentStatus === 'fully_paid' ? 'Pago integralmente' : 'Atrasado'}
+          </div>
+        </div>
+      </div>
+
+      {/* Notes card */}
+      <div style={cardStyle}>
+        <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>
+          Observações
+        </h2>
+        <textarea
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          placeholder="Adicione observações internas sobre a reserva..."
+          style={{
+            width: '100%',
+            minHeight: '100px',
+            padding: '12px',
+            borderRadius: '8px',
+            border: '1px solid var(--border)',
+            backgroundColor: 'var(--bg)',
+            color: 'var(--text)',
+            fontSize: '14px',
+            resize: 'vertical',
+            marginBottom: '12px',
+          }}
+        />
+        <button
+          onClick={saveNotes}
+          disabled={notesSaving}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: 'var(--purple)',
+            border: 'none',
+            borderRadius: '8px',
+            color: 'white',
+            fontWeight: 600,
+            fontSize: '14px',
+            cursor: notesSaving ? 'not-allowed' : 'pointer',
+            opacity: notesSaving ? 0.6 : 1,
+          }}
+        >
+          {notesSaving ? "Salvando..." : "Salvar"}
+        </button>
+      </div>
+
+      {/* Delete button */}
+      <button
+        onClick={handleDelete}
+        disabled={loading}
+        style={{
+          width: '100%',
+          padding: '12px',
+          backgroundColor: 'rgba(239,68,68,0.1)',
+          border: '1px solid rgba(239,68,68,0.3)',
+          borderRadius: '10px',
+          color: '#f87171',
+          fontWeight: 600,
+          fontSize: '14px',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          marginTop: '12px',
+          opacity: loading ? 0.6 : 1,
+        }}
+      >
+        {loading ? 'Excluindo...' : '🗑️ Excluir reserva'}
+      </button>
     </div>
   )
 }
