@@ -133,7 +133,7 @@ export function CalendarioClient({ properties, bookings, blockedDates, holidays,
 
     return isWeekend
       ? Number(property.base_price_weekend)
-      : Number(property.base_price_weekday)
+      : Number(property.single_night_weekday_price || property.base_price_weekday)
   }
 
   const getCabinColors = (index: number) => {
