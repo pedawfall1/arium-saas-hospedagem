@@ -11,6 +11,9 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
   const router = useRouter()
   const [filterProp, setFilterProp] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<string>("all")
+  const [searchGuest, setSearchGuest] = useState('')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
 
   // Stats
   const totalReservas = bookings.length
@@ -40,6 +43,11 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
       if (filterStatus === "active" && (b.status === "cancelled" || b.status === "completed")) return false
       if (filterStatus !== "active" && b.status !== filterStatus) return false
     }
+    // Search by guest name
+    if (searchGuest && !b.guest_name?.toLowerCase().includes(searchGuest.toLowerCase())) return false
+    // Date range filter — check_in within selected range
+    if (filterDateFrom && b.check_in < filterDateFrom) return false
+    if (filterDateTo && b.check_in > filterDateTo) return false
     return true
   })
 
@@ -127,6 +135,58 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
           </select>
         </div>
 
+        {/* Row 2 — Search + Date range */}
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', width: '100%', marginTop: '4px' }}>
+          {/* Search by guest name */}
+          <input
+            type="text"
+            placeholder="🔍 Buscar por hóspede..."
+            value={searchGuest}
+            onChange={e => setSearchGuest(e.target.value)}
+            style={{
+              ...filterSelectStyle,
+              flex: '2 1 200px',
+              minWidth: '180px',
+            }}
+          />
+
+          {/* Date from */}
+          <input
+            type="date"
+            value={filterDateFrom}
+            onChange={e => setFilterDateFrom(e.target.value)}
+            style={{ ...filterSelectStyle, flex: '1 1 140px', minWidth: '140px' }}
+          />
+
+          {/* Date to */}
+          <input
+            type="date"
+            value={filterDateTo}
+            onChange={e => setFilterDateTo(e.target.value)}
+            style={{ ...filterSelectStyle, flex: '1 1 140px', minWidth: '140px' }}
+          />
+
+          {/* Clear filters button — only show if any filter is active */}
+          {(searchGuest || filterDateFrom || filterDateTo) && (
+            <button
+              onClick={() => { setSearchGuest(''); setFilterDateFrom(''); setFilterDateTo('') }}
+              style={{
+                padding: '10px 14px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'transparent',
+                color: 'var(--muted)',
+                fontSize: '13px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              ✕ Limpar
+            </button>
+          )}
+        </div>
+
         <button 
           onClick={() => router.push('/dashboard/reservas/nova')}
           style={{
@@ -147,6 +207,12 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
           Nova reserva manual
         </button>
       </div>
+
+      {filtered.length !== bookings.length && (
+        <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '8px' }}>
+          Mostrando {filtered.length} de {bookings.length} reservas
+        </p>
+      )}
 
       <div style={{
         backgroundColor: 'var(--surface)',

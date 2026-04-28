@@ -22,9 +22,9 @@ export function MobileNav({ role }: { role: "arium" | "tenant" }) {
   const links = role === 'arium' ? ARIUM_LINKS : TENANT_LINKS
 
   return (
-    <div 
-      className="md:hidden fixed bottom-0 left-0 z-50 flex h-16 w-full"
-      style={{ borderTop: '1px solid var(--border)', backgroundColor: 'var(--surface)' }}
+    <div
+      className="md:hidden fixed bottom-0 left-0 z-50 flex w-full"
+      style={{ borderTop: '1px solid var(--border)', backgroundColor: 'var(--surface)', height: 'calc(64px + env(safe-area-inset-bottom, 0px))', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       {links.map((link) => {
         const isActive = pathname === link.href || pathname.startsWith(link.href + "/")

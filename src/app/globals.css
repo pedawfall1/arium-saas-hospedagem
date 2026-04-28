@@ -595,7 +595,7 @@ body::before {
   .mobile-header { display: flex !important; }
   .dashboard-main {
     margin-left: 0 !important;
-    padding: 56px 16px 32px !important;
+    padding: 56px 16px calc(32px + 64px + env(safe-area-inset-bottom, 0px)) !important;
   }
   .dash-stats {
     grid-template-columns: repeat(2, 1fr) !important;
@@ -621,7 +621,7 @@ body::before {
   --sidebar: #ffffff;
   --border: rgba(0,0,0,0.08);
   --text: #0f0f1a;
-  --muted: rgba(15,15,26,0.5);
+  --muted: rgba(15,15,26,0.7);
   --accent: #7c3aed;
   --purple: #7c3aed;
   --purple-dim: rgba(124,58,237,0.08);
