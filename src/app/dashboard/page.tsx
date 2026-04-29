@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { BookOpen, Calendar, Settings2, BarChart2, ChevronRight, TrendingUp } from "lucide-react"
 import Link from "next/link"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { StatusBadge } from "@/components/ui/Badge"
 
 export const revalidate = 30
 
@@ -242,9 +243,7 @@ export default async function TenantDashboardPage() {
                         <td style={{ padding: '16px 24px', color: 'var(--text)', fontSize: '14px', whiteSpace: 'nowrap' }}>{b.guest_name}</td>
                         <td style={{ padding: '16px 24px', color: 'var(--text)', fontSize: '14px', whiteSpace: 'nowrap' }}>{formatDate(b.check_in)}</td>
                         <td style={{ padding: '16px 24px', whiteSpace: 'nowrap' }}>
-                          <span style={{ fontSize: '12px', padding: '4px 8px', borderRadius: '4px', backgroundColor: 'var(--purple-dim)', color: 'var(--accent)' }}>
-                            {b.status === 'confirmed' ? "Confirmada" : b.status === "completed" ? "Concluída" : b.status}
-                          </span>
+                          <StatusBadge status={b.status} />
                         </td>
                       </tr>
                     ))}

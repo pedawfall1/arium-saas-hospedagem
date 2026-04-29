@@ -11,7 +11,7 @@ import { formatDate } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
-export function CalendarioClient({ properties, bookings, blockedDates, holidays, tenantName }: any) {
+export function CalendarioClient({ properties, bookings, allBookings, blockedDates, holidays, tenantName }: any) {
   // Add CSS for mobile-only button
   useEffect(() => {
     const style = document.createElement('style')
@@ -98,7 +98,22 @@ export function CalendarioClient({ properties, bookings, blockedDates, holidays,
 
   const getDayInfo = (date: Date, propertyId?: string) => {
     const dayBookings = bookings.filter((b: any) => {
-      if (b.status === 'cancelled') return false
+      const targetProperty = propertyId || filterProperty
+      if (targetProperty && b.property_id !== targetProperty) return false
+      const formattedDay = format(date, 'yyyy-MM-dd')
+      return formattedDay >= b.check_in && formattedDay < b.check_out
+    })
+
+    const formattedDate = format(date, 'yyyy-MM-dd')
+    const dayBlocks = blockedDates.filter((b: any) =>
+      b.date === formattedDate && (!propertyId || b.property_id === propertyId)
+    )
+
+    return { bookings: dayBookings, blocks: dayBlocks }
+  }
+
+  const getAllDayBookings = (date: Date, propertyId?: string) => {
+    const dayBookings = (allBookings || bookings).filter((b: any) => {
       const targetProperty = propertyId || filterProperty
       if (targetProperty && b.property_id !== targetProperty) return false
       const formattedDay = format(date, 'yyyy-MM-dd')
@@ -528,6 +543,23 @@ export function CalendarioClient({ properties, bookings, blockedDates, holidays,
             const isBlocked = blockedDates.some((d: any) =>
               isSameDay(parseISO(d.date), day) && d.property_id === filterProperty
             )
+            const pendingBooking = (allBookings || []).find((b: any) =>
+              b.status === 'pending' &&
+              b.property_id === filterProperty &&
+              day >= parseISO(b.check_in) &&
+              day < parseISO(b.check_out)
+            )
+
+            // Cross-cabin availability check
+            const otherProperty = sortedProperties.find((p: any) => p.id !== filterProperty)
+            const otherPendingBooking = otherProperty
+              ? (allBookings || []).find((b: any) =>
+                  b.status === 'pending' &&
+                  b.property_id === otherProperty.id &&
+                  day >= parseISO(b.check_in) &&
+                  day < parseISO(b.check_out)
+                )
+              : null
 
             const cellBackgroundColor = booking
               ? propertyIndex(booking.property_id) === 0
@@ -541,9 +573,6 @@ export function CalendarioClient({ properties, bookings, blockedDates, holidays,
             const isInRange = rangeMode && rangeStart && rangeEnd && dateStr >= rangeStart && dateStr <= rangeEnd
             const isRangeStart = rangeMode && dateStr === rangeStart
             const isRangeEnd = rangeMode && dateStr === rangeEnd
-
-            // Cross-cabin availability check
-            const otherProperty = sortedProperties.find((p: any) => p.id !== filterProperty)
             const otherIsBlocked = otherProperty
               ? blockedDates.some((d: any) =>
                   isSameDay(parseISO(d.date), day) && d.property_id === otherProperty.id
@@ -551,7 +580,6 @@ export function CalendarioClient({ properties, bookings, blockedDates, holidays,
               : false
             const otherHasBooking = otherProperty
               ? bookings.some((b: any) =>
-                  b.status !== 'cancelled' &&
                   b.property_id === otherProperty.id &&
                   day >= parseISO(b.check_in) &&
                   day < parseISO(b.check_out)
@@ -582,7 +610,8 @@ export function CalendarioClient({ properties, bookings, blockedDates, holidays,
                     setBlockData(prev => ({ ...prev, date: dateStr, property_id: filterProperty }))
                     setShowBlockForm(true)
                   } else {
-                    setSelectedDay({ dateStr, dayBookings, blocks })
+                    const { bookings: allDayBookings, blocks: allBlocks } = getAllDayBookings(day)
+                    setSelectedDay({ dateStr, dayBookings: allDayBookings, blocks: allBlocks })
                   }
                 }}
                 className="cal-cell"
@@ -637,57 +666,98 @@ export function CalendarioClient({ properties, bookings, blockedDates, holidays,
                     )}
                   </div>
 
-                  {/* Middle: price */}
-                  {(() => {
-                    const price = getPriceForDay(day, filterProperty)
-                    if (!price || !isCurrentMonth) return null
-                    return (
+                  {/* Middle: empty space (flex-grow) */}
+                  <div style={{ flex: 1 }} />
+
+                  {/* Bottom section: badges + price */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
+                    {/* Status badges */}
+                    {booking && (filterProperty === 'all' || booking.property_id === filterProperty) && (
                       <div style={{
-                        fontSize: '11px',
-                        fontWeight: 500,
-                        color: 'var(--muted)',
-                        marginTop: '4px',
-                        marginBottom: '4px',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontSize: 'clamp(8px, 1.8vw, 11px)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        backgroundColor: propertyIndex(booking.property_id) === 0 ? 'rgba(124,58,237,0.3)' : 'rgba(249,115,22,0.3)',
+                        color: propertyIndex(booking.property_id) === 0 ? 'var(--accent)' : '#fb923c',
                         opacity: isPast ? 0.35 : 1,
                       }}>
-                        R$ {price.toLocaleString('pt-BR')}
+                        {booking.guest_name}
                       </div>
-                    )
-                  })()}
+                    )}
 
-                  {/* Bottom: booking or blocked pill */}
-                  {booking && (filterProperty === 'all' || booking.property_id === filterProperty) && (
-                    <div style={{
-                      marginTop: '6px',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      fontSize: 'clamp(8px, 1.8vw, 11px)',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      backgroundColor: propertyIndex(booking.property_id) === 0 ? 'rgba(124,58,237,0.3)' : 'rgba(249,115,22,0.3)',
-                      color: propertyIndex(booking.property_id) === 0 ? 'var(--accent)' : '#fb923c',
-                    }}>
-                      {booking.guest_name}
-                    </div>
-                  )}
+                    {!booking && isBlocked && blocks.some((b: any) => filterProperty === 'all' || b.property_id === filterProperty) && (
+                      <div style={{
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        fontSize: 'clamp(8px, 1.8vw, 11px)',
+                        backgroundColor: propertyIndex(filterProperty) === 0 ? '#ef444422' : '#eab30822',
+                        color: propertyIndex(filterProperty) === 0 ? '#ef4444' : '#eab308',
+                        border: `1px solid ${propertyIndex(filterProperty) === 0 ? '#ef444444' : '#eab30844'}`,
+                        textAlign: 'center',
+                        overflow: 'hidden',
+                        opacity: isPast ? 0.35 : 1,
+                      }}>
+                        Bloqueado
+                      </div>
+                    )}
 
-                  {!booking && isBlocked && blocks.some((b: any) => filterProperty === 'all' || b.property_id === filterProperty) && (
-                    <div style={{
-                      marginTop: '6px',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      fontSize: 'clamp(8px, 1.8vw, 11px)',
-                      backgroundColor: propertyIndex(filterProperty) === 0 ? '#ef444422' : '#eab30822',
-                      color: propertyIndex(filterProperty) === 0 ? '#ef4444' : '#eab308',
-                      border: `1px solid ${propertyIndex(filterProperty) === 0 ? '#ef444444' : '#eab30844'}`,
-                      textAlign: 'center',
-                      overflow: 'hidden',
-                      opacity: isPast ? 0.35 : 1,
-                    }}>
-                      Bloqueado
-                    </div>
-                  )}
+                    {!booking && !isBlocked && pendingBooking && (filterProperty === 'all' || pendingBooking.property_id === filterProperty) && (
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '50%',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        backgroundColor: 'rgba(249,115,22,0.2)',
+                        color: '#fb923c',
+                        border: '1px solid rgba(249,115,22,0.4)',
+                        opacity: isPast ? 0.35 : 1,
+                      }}>
+                        P
+                      </div>
+                    )}
+
+                    {!booking && !isBlocked && !pendingBooking && otherPendingBooking && (
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '50%',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        backgroundColor: 'rgba(249,115,22,0.1)',
+                        color: 'rgba(251,146,60,0.5)',
+                        border: '1px solid rgba(249,115,22,0.2)',
+                        opacity: isPast ? 0.35 : 1,
+                      }}>
+                        P
+                      </div>
+                    )}
+
+                    {/* Price always at bottom */}
+                    {(() => {
+                      const price = getPriceForDay(day, filterProperty)
+                      if (!price || !isCurrentMonth) return null
+                      return (
+                        <div style={{
+                          fontSize: '11px',
+                          fontWeight: 500,
+                          color: 'var(--muted)',
+                          opacity: isPast ? 0.35 : 1,
+                        }}>
+                          R$ {price.toLocaleString('pt-BR')}
+                        </div>
+                      )
+                    })()}
+                  </div>
                 </div>
               </div>
             )
@@ -751,6 +821,21 @@ export function CalendarioClient({ properties, bookings, blockedDates, holidays,
                           const isBlocked = blockedDates.some((d: any) =>
                             isSameDay(parseISO(d.date), day) && d.property_id === property.id
                           )
+                          const pendingBooking = (allBookings || []).find((b: any) =>
+                            b.status === 'pending' &&
+                            b.property_id === property.id &&
+                            day >= parseISO(b.check_in) &&
+                            day < parseISO(b.check_out)
+                          )
+                          const otherPropertyInUnified = sortedProperties.find((p: any) => p.id !== property.id)
+                          const otherPendingBookingInUnified = otherPropertyInUnified
+                            ? (allBookings || []).find((b: any) =>
+                                b.status === 'pending' &&
+                                b.property_id === otherPropertyInUnified.id &&
+                                day >= parseISO(b.check_in) &&
+                                day < parseISO(b.check_out)
+                              )
+                            : null
 
                           const cellBackgroundColor = booking
                             ? colors.booking
@@ -790,7 +875,8 @@ export function CalendarioClient({ properties, bookings, blockedDates, holidays,
                                 }))
                                 setShowBlockForm(true)
                               } else {
-                                setSelectedDay({ dateStr, dayBookings, blocks })
+                                const { bookings: allDayBookings, blocks: allBlocks } = getAllDayBookings(day, property.id)
+                                setSelectedDay({ dateStr, dayBookings: allDayBookings, blocks: allBlocks })
                               }
                             }}
                             className="cal-cell"
@@ -803,7 +889,6 @@ export function CalendarioClient({ properties, bookings, blockedDates, holidays,
                               transition: 'background 0.15s',
                               backgroundColor: cellBackgroundColor,
                               opacity: isPast ? 0.35 : 1,
-                              filter: isPast ? 'grayscale(0.35)' : 'none',
                               ...(isInRange && { backgroundColor: 'rgba(124,58,237,0.2)' }),
                               ...(isRangeStart && { boxShadow: 'inset 0 0 0 2px #7c3aed' }),
                               ...(isRangeEnd && { boxShadow: 'inset 0 0 0 2px #7c3aed' }),
@@ -816,6 +901,7 @@ export function CalendarioClient({ properties, bookings, blockedDates, holidays,
                               height: '100%',
                               minHeight: 'clamp(64px, 13vw, 110px)',
                             }}>
+                              {/* Top: day number */}
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 {isTodayDay ? (
                                   <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '50%', backgroundColor: idx === 0 ? '#f97b00' : '#7c3aed', color: 'white', fontWeight: 700, fontSize: '12px' }}>
@@ -827,55 +913,98 @@ export function CalendarioClient({ properties, bookings, blockedDates, holidays,
                                   </span>
                                 )}
                               </div>
-                              
-                              {(() => {
-                                const price = getPriceForDay(day, property.id)
-                                if (!price || !isCurrentMonth) return null
-                                return (
+
+                              {/* Middle: empty space (flex-grow) */}
+                              <div style={{ flex: 1 }} />
+
+                              {/* Bottom section: badges + price */}
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
+                                {/* Status badges */}
+                                {booking && (
                                   <div style={{
-                                    fontSize: '11px',
-                                    fontWeight: 500,
-                                    color: 'var(--muted)',
-                                    marginTop: '4px',
-                                    marginBottom: '4px',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    fontSize: 'clamp(8px, 1.8vw, 11px)',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    backgroundColor: colors.bookingPill,
+                                    color: colors.bookingText,
                                     opacity: isPast ? 0.35 : 1,
                                   }}>
-                                    R$ {price.toLocaleString('pt-BR')}
+                                    {booking.guest_name}
                                   </div>
-                                )
-                              })()}
+                                )}
 
-                              {booking && (
-                                <div style={{
-                                  marginTop: '6px',
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  fontSize: 'clamp(8px, 1.8vw, 11px)',
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  backgroundColor: colors.bookingPill,
-                                  color: colors.bookingText,
-                                }}>
-                                  {booking.guest_name}
-                                </div>
-                              )}
+                                {!booking && isBlocked && (
+                                  <div style={{
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    fontSize: 'clamp(8px, 1.8vw, 11px)',
+                                    backgroundColor: colors.blockedPill, color: colors.blockedText,
+                                    border: `1px solid ${colors.accent}44`,
+                                    textAlign: 'center',
+                                    overflow: 'hidden',
+                                    opacity: isPast ? 0.35 : 1,
+                                  }}>
+                                    Bloqueado
+                                  </div>
+                                )}
 
-                              {!booking && isBlocked && (
-                                <div style={{
-                                  marginTop: '6px',
-                                  padding: '2px 6px',
-                                  borderRadius: '4px',
-                                  fontSize: 'clamp(8px, 1.8vw, 11px)',
-                                  backgroundColor: colors.blockedPill, color: colors.blockedText,
-                                  border: `1px solid ${colors.accent}44`,
-                                  textAlign: 'center',
-                                  overflow: 'hidden',
-                                  opacity: isPast ? 0.35 : 1,
-                                }}>
-                                  Bloqueado
-                                </div>
-                              )}
+                                {!booking && !isBlocked && pendingBooking && (
+                                  <div style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '20px',
+                                    height: '20px',
+                                    borderRadius: '50%',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    backgroundColor: 'rgba(249,115,22,0.2)',
+                                    color: '#fb923c',
+                                    border: '1px solid rgba(249,115,22,0.4)',
+                                    opacity: isPast ? 0.35 : 1,
+                                  }}>
+                                    P
+                                  </div>
+                                )}
+
+                                {!booking && !isBlocked && !pendingBooking && otherPendingBookingInUnified && (
+                                  <div style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '20px',
+                                    height: '20px',
+                                    borderRadius: '50%',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    backgroundColor: 'rgba(249,115,22,0.1)',
+                                    color: 'rgba(251,146,60,0.5)',
+                                    border: '1px solid rgba(249,115,22,0.2)',
+                                    opacity: isPast ? 0.35 : 1,
+                                  }}>
+                                    P
+                                  </div>
+                                )}
+
+                                {/* Price always at bottom */}
+                                {(() => {
+                                  const price = getPriceForDay(day, property.id)
+                                  if (!price || !isCurrentMonth) return null
+                                  return (
+                                    <div style={{
+                                      fontSize: '11px',
+                                      fontWeight: 500,
+                                      color: 'var(--muted)',
+                                      opacity: isPast ? 0.35 : 1,
+                                    }}>
+                                      R$ {price.toLocaleString('pt-BR')}
+                                    </div>
+                                  )
+                                })()}
+                              </div>
                             </div>
                           </div>
                         )
@@ -955,27 +1084,49 @@ export function CalendarioClient({ properties, bookings, blockedDates, holidays,
             Data: {format(parseISO(selectedDay.dateStr), 'dd/MM/yyyy')}
           </h3>
           
-          <div className="grid gap-4 md:grid-cols-2">
-            {selectedDay.dayBookings.map((b: any) => (
-              <div key={b.id} className="border rounded-lg p-4" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--surface)' }}>
-                <div className="flex justify-between items-start mb-2">
-                  <p className="font-medium text-lg" style={{ color: 'var(--text)' }}>{b.guest_name}</p>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {selectedDay.dayBookings.map((b: any, i: number) => (
+              <div key={b.id} style={{ marginTop: i > 0 ? '12px' : '0', border: '1px solid rgba(249,115,22,0.5)', backgroundColor: 'rgba(249,115,22,0.25)', borderRadius: '12px', padding: '16px', borderLeft: '4px solid #f97316' }}>
+                <div className="flex justify-between items-start mb-3">
+                  <p className="font-semibold text-lg" style={{ color: '#fed7aa' }}>{b.guest_name}</p>
                   <StatusBadge status={b.status} />
                 </div>
-                <p className="text-sm" style={{ color: 'var(--muted)' }}>
+                <p className="text-sm mb-1" style={{ color: '#fdba74' }}>
                   {b.properties?.name || sortedProperties.find((p:any) => p.id === b.property_id)?.name}
                 </p>
-                <p className="text-sm mb-3" style={{ color: 'var(--muted)' }}>
+                <p className="text-sm mb-4" style={{ color: '#d1d5db' }}>
                   Entra: {formatDate(b.check_in)} | Sai: {formatDate(b.check_out)}
                 </p>
-                <Button onClick={() => router.push(`/dashboard/reservas/${b.id}`)} variant="outline" size="sm" className="w-full">
+                <Button
+                  onClick={() => router.push(`/dashboard/reservas/${b.id}`)}
+                  style={{
+                    width: '100%',
+                    backgroundColor: 'rgba(249,115,22,0.3)',
+                    border: '1px solid rgba(249,115,22,0.7)',
+                    color: '#fb923c',
+                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(249,115,22,0.4)'
+                    e.currentTarget.style.borderColor = '#fb923c'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(249,115,22,0.3)'
+                    e.currentTarget.style.borderColor = 'rgba(249,115,22,0.7)'
+                  }}
+                >
                   Ver Reserva Completa
                 </Button>
               </div>
             ))}
 
-            {selectedDay.blocks.map((block: any) => (
-              <div key={block.id} style={{ border: '1px solid rgba(239,68,68,0.3)', backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: '12px', padding: '16px' }}>
+            {selectedDay.blocks.map((block: any, i: number) => (
+              <div key={block.id} style={{ marginTop: (i > 0 || selectedDay.dayBookings.length > 0) ? '12px' : '0', border: '1px solid rgba(239,68,68,0.3)', backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: '12px', padding: '16px' }}>
                 
                 {editingBlock === block.id ? (
                   // EDIT MODE

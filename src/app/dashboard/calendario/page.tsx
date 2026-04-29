@@ -27,17 +27,20 @@ export default async function CalendarioPage() {
   const propertyIds = (properties || []).map(p => p.id)
 
   let bookings: any[] = []
+  let allBookings: any[] = []
   let blockedDates: any[] = []
   let holidays: any[] = []
 
   if (propertyIds.length > 0) {
-    const [{ data: bookingsRes }, { data: blocksRes }, { data: holidaysRes }] = await Promise.all([
+    const [{ data: bookingsRes }, { data: allBookingsRes }, { data: blocksRes }, { data: holidaysRes }] = await Promise.all([
+      supabase.from('bookings').select('*').in('property_id', propertyIds).in('status', ['confirmed', 'checked_in', 'completed']),
       supabase.from('bookings').select('*').in('property_id', propertyIds),
       supabase.from('blocked_dates').select('*').in('property_id', propertyIds),
       supabase.from('holidays').select('*').in('property_id', propertyIds).order('date_from')
     ])
 
     bookings = bookingsRes || []
+    allBookings = allBookingsRes || []
     blockedDates = blocksRes || []
     holidays = holidaysRes || []
   }
@@ -46,6 +49,7 @@ export default async function CalendarioPage() {
     <CalendarioClient
       properties={properties || []}
       bookings={bookings}
+      allBookings={allBookings}
       blockedDates={blockedDates}
       holidays={holidays}
       tenantName={tenant.business_name}
