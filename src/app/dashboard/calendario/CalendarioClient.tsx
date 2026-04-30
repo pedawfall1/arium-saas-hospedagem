@@ -98,6 +98,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
 
   const getDayInfo = (date: Date, propertyId?: string) => {
     const dayBookings = bookings.filter((b: any) => {
+      if (!['confirmed', 'checked_in', 'completed'].includes(b.status)) return false
       const targetProperty = propertyId || filterProperty
       if (targetProperty && b.property_id !== targetProperty) return false
       const formattedDay = format(date, 'yyyy-MM-dd')
@@ -113,7 +114,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
   }
 
   const getAllDayBookings = (date: Date, propertyId?: string) => {
-    const dayBookings = (allBookings || bookings).filter((b: any) => {
+    const dayBookings = (allBookings || []).filter((b: any) => {
       const targetProperty = propertyId || filterProperty
       if (targetProperty && b.property_id !== targetProperty) return false
       const formattedDay = format(date, 'yyyy-MM-dd')
@@ -536,6 +537,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
             // Determine styling status
             const booking = bookings.find((b: any) =>
               b.status !== 'cancelled' &&
+              b.status !== 'pending' &&
               b.property_id === filterProperty &&
               day >= parseISO(b.check_in) &&
               day < parseISO(b.check_out)
@@ -709,11 +711,11 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        width: '20px',
-                        height: '20px',
+                        width: 'clamp(20px, 3vw, 28px)',
+                        height: 'clamp(20px, 3vw, 28px)',
                         borderRadius: '50%',
-                        fontSize: '11px',
-                        fontWeight: 700,
+                        fontSize: 'clamp(11px, 1.5vw, 13px)',
+                        fontWeight: 800,
                         backgroundColor: 'rgba(249,115,22,0.2)',
                         color: '#fb923c',
                         border: '1px solid rgba(249,115,22,0.4)',
@@ -728,11 +730,11 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        width: '20px',
-                        height: '20px',
+                        width: 'clamp(20px, 3vw, 28px)',
+                        height: 'clamp(20px, 3vw, 28px)',
                         borderRadius: '50%',
-                        fontSize: '11px',
-                        fontWeight: 700,
+                        fontSize: 'clamp(11px, 1.5vw, 13px)',
+                        fontWeight: 800,
                         backgroundColor: 'rgba(249,115,22,0.1)',
                         color: 'rgba(251,146,60,0.5)',
                         border: '1px solid rgba(249,115,22,0.2)',
@@ -814,6 +816,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
 
                           const booking = bookings.find((b: any) =>
                             b.status !== 'cancelled' &&
+                            b.status !== 'pending' &&
                             b.property_id === property.id &&
                             day >= parseISO(b.check_in) &&
                             day < parseISO(b.check_out)
@@ -956,11 +959,11 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    width: '20px',
-                                    height: '20px',
+                                    width: 'clamp(20px, 3vw, 28px)',
+                                    height: 'clamp(20px, 3vw, 28px)',
                                     borderRadius: '50%',
-                                    fontSize: '11px',
-                                    fontWeight: 700,
+                                    fontSize: 'clamp(11px, 1.5vw, 13px)',
+                                    fontWeight: 800,
                                     backgroundColor: 'rgba(249,115,22,0.2)',
                                     color: '#fb923c',
                                     border: '1px solid rgba(249,115,22,0.4)',
@@ -975,11 +978,11 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                                     display: 'inline-flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    width: '20px',
-                                    height: '20px',
+                                    width: 'clamp(20px, 3vw, 28px)',
+                                    height: 'clamp(20px, 3vw, 28px)',
                                     borderRadius: '50%',
-                                    fontSize: '11px',
-                                    fontWeight: 700,
+                                    fontSize: 'clamp(11px, 1.5vw, 13px)',
+                                    fontWeight: 800,
                                     backgroundColor: 'rgba(249,115,22,0.1)',
                                     color: 'rgba(251,146,60,0.5)',
                                     border: '1px solid rgba(249,115,22,0.2)',
@@ -1084,9 +1087,9 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
             Data: {format(parseISO(selectedDay.dateStr), 'dd/MM/yyyy')}
           </h3>
           
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {selectedDay.dayBookings.map((b: any, i: number) => (
-              <div key={b.id} style={{ marginTop: i > 0 ? '12px' : '0', border: '1px solid rgba(249,115,22,0.5)', backgroundColor: 'rgba(249,115,22,0.25)', borderRadius: '12px', padding: '16px', borderLeft: '4px solid #f97316' }}>
+          <div className="flex flex-col gap-4">
+            {selectedDay.dayBookings.map((b: any) => (
+              <div key={b.id} style={{ border: '1px solid rgba(249,115,22,0.5)', backgroundColor: 'rgba(249,115,22,0.25)', borderRadius: '12px', padding: '16px', borderLeft: '4px solid #f97316' }}>
                 <div className="flex justify-between items-start mb-3">
                   <p className="font-semibold text-lg" style={{ color: '#fed7aa' }}>{b.guest_name}</p>
                   <StatusBadge status={b.status} />
@@ -1125,8 +1128,8 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
               </div>
             ))}
 
-            {selectedDay.blocks.map((block: any, i: number) => (
-              <div key={block.id} style={{ marginTop: (i > 0 || selectedDay.dayBookings.length > 0) ? '12px' : '0', border: '1px solid rgba(239,68,68,0.3)', backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: '12px', padding: '16px' }}>
+            {selectedDay.blocks.map((block: any) => (
+              <div key={block.id} style={{ border: '1px solid rgba(239,68,68,0.3)', backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: '12px', padding: '16px' }}>
                 
                 {editingBlock === block.id ? (
                   // EDIT MODE
