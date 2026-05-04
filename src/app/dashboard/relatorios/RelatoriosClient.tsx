@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import { TrendingUp, Banknote, CalendarCheck, Info, BarChart } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import { startOfMonth, endOfMonth, parseISO, format, differenceInDays, subMonths, isSameMonth } from "date-fns"
+import DatePicker from "react-datepicker"
+import "react-datepicker/dist/react-datepicker.css"
 
 function StatCard({ label, value, icon: Icon, color }: any) {
   return (
@@ -26,6 +28,64 @@ export function RelatoriosClient({ bookings, properties }: { bookings: any[], pr
 
   useEffect(() => {
     setMounted(true)
+
+    // Add custom styles for date picker
+    const style = document.createElement('style')
+    style.textContent = `
+      .react-datepicker-popper {
+        z-index: 9999 !important;
+      }
+      .react-datepicker {
+        background-color: var(--surface) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 12px !important;
+        font-family: inherit !important;
+      }
+      .react-datepicker__header {
+        background-color: var(--surface) !important;
+        border-bottom: 1px solid var(--border) !important;
+        border-radius: 12px 12px 0 0 !important;
+        padding: 10px !important;
+      }
+      .react-datepicker__current-month {
+        color: var(--text) !important;
+        font-weight: 600 !important;
+      }
+      .react-datepicker__day-name {
+        color: var(--muted) !important;
+        font-size: 12px !important;
+      }
+      .react-datepicker__day {
+        color: var(--text) !important;
+        border-radius: 8px !important;
+      }
+      .react-datepicker__day:hover {
+        background-color: var(--purple-dim) !important;
+      }
+      .react-datepicker__day--selected {
+        background-color: var(--purple) !important;
+        color: white !important;
+      }
+      .react-datepicker__day--keyboard-selected {
+        background-color: var(--accent) !important;
+        color: white !important;
+      }
+      .react-datepicker__day--outside-month {
+        color: var(--muted) !important;
+        opacity: 0.5 !important;
+      }
+      .react-datepicker__navigation {
+        top: 10px !important;
+      }
+      .react-datepicker__navigation-icon::before {
+        border-color: var(--text) !important;
+        border-width: 2px 2px 0 0 !important;
+        height: 7px !important;
+        width: 7px !important;
+      }
+    `
+    document.head.appendChild(style)
+    return () => style.remove()
   }, [])
 
   const filteredBookings = bookings.filter(b => {
@@ -33,25 +93,29 @@ export function RelatoriosClient({ bookings, properties }: { bookings: any[], pr
   })
 
   // Date range metrics
-  const totalRevenue = filteredBookings.reduce((acc, b) => acc + (b.total_amount || 0), 0)
+  const totalRevenue = filteredBookings.reduce((acc, b) => acc + (parseFloat(b.total_amount) || 0), 0)
   const depositReceived = filteredBookings.filter(b => b.payment_status === "deposit_paid" || b.payment_status === "fully_paid")
-                                          .reduce((acc, b) => acc + (b.deposit_amount || 0), 0)
+                                          .reduce((acc, b) => acc + (parseFloat(b.deposit_amount) || 0), 0)
   const pendingCheckin = filteredBookings.filter(b => b.status === "confirmed")
-                                         .reduce((acc, b) => acc + ((b.total_amount || 0) - (b.deposit_amount || 0)), 0)
+                                         .reduce((acc, b) => acc + ((parseFloat(b.total_amount) || 0) - (parseFloat(b.deposit_amount) || 0)), 0)
   const ticketMedio = filteredBookings.length > 0 ? totalRevenue / filteredBookings.length : 0
 
   // Occupancy rate calculation
   const totalDaysInPeriod = Math.max(1, differenceInDays(parseISO(endDate), parseISO(startDate)) + 1)
-  
+
   const occupancyMap = properties.map(p => {
     const propBookings = filteredBookings.filter(b => b.property_id === p.id)
     let bookedNights = 0
     propBookings.forEach(b => {
-      bookedNights += Math.max(1, differenceInDays(parseISO(b.check_out), parseISO(b.check_in)))
+      const checkIn = parseISO(b.check_in)
+      const checkOut = parseISO(b.check_out)
+      if (checkIn && checkOut && !isNaN(checkIn.getTime()) && !isNaN(checkOut.getTime())) {
+        bookedNights += Math.max(1, differenceInDays(checkOut, checkIn))
+      }
     })
     const cappedNights = Math.min(bookedNights, totalDaysInPeriod)
-    const rate = (cappedNights / totalDaysInPeriod) * 100
-    return { name: p.name, rate: rate.toFixed(1) }
+    const rate = totalDaysInPeriod > 0 ? (cappedNights / totalDaysInPeriod) * 100 : 0
+    return { name: p.name, rate: isNaN(rate) ? '0.0' : rate.toFixed(1) }
   })
 
   // Chart calculation - Last 6 months
@@ -60,11 +124,11 @@ export function RelatoriosClient({ bookings, properties }: { bookings: any[], pr
   for (let i = 5; i >= 0; i--) {
     const m = subMonths(now, i)
     const mStr = format(m, 'MMM')
-    
-    const mRevenue = bookings.filter(b => 
-      isSameMonth(parseISO(b.check_in), m) && 
+
+    const mRevenue = bookings.filter(b =>
+      isSameMonth(parseISO(b.check_in), m) &&
       (b.status === "confirmed" || b.status === "checked_in" || b.status === "completed")
-    ).reduce((acc, b) => acc + (b.total_amount || 0), 0)
+    ).reduce((acc, b) => acc + (parseFloat(b.total_amount) || 0), 0)
 
     chartData.push({ label: mStr, val: mRevenue })
   }
@@ -84,11 +148,39 @@ export function RelatoriosClient({ bookings, properties }: { bookings: any[], pr
       <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', display: 'flex', gap: '16px', marginBottom: '32px', flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 200px' }}>
           <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Período Inicial</label>
-          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }} />
+          <DatePicker
+            selected={startDate ? parseISO(startDate) : null}
+            onChange={(date: Date | null) => setStartDate(date ? format(date, 'yyyy-MM-dd') : '')}
+            dateFormat="dd/MM/yyyy"
+            className="date-picker-input"
+            placeholderText="Selecione a data"
+            customInput={
+              <input
+                type="text"
+                value={startDate ? format(parseISO(startDate), 'dd/MM/yyyy') : ''}
+                readOnly
+                style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none', cursor: 'pointer' }}
+              />
+            }
+          />
         </div>
         <div style={{ flex: '1 1 200px' }}>
           <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Período Final</label>
-          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }} />
+          <DatePicker
+            selected={endDate ? parseISO(endDate) : null}
+            onChange={(date: Date | null) => setEndDate(date ? format(date, 'yyyy-MM-dd') : '')}
+            dateFormat="dd/MM/yyyy"
+            className="date-picker-input"
+            placeholderText="Selecione a data"
+            customInput={
+              <input
+                type="text"
+                value={endDate ? format(parseISO(endDate), 'dd/MM/yyyy') : ''}
+                readOnly
+                style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none', cursor: 'pointer' }}
+              />
+            }
+          />
         </div>
       </div>
 
