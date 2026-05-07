@@ -858,7 +858,6 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                               if (rangeMode) {
                                 if (!rangeStart) {
                                   setRangeStart(dateStr)
-                                  setFilterProperty(property.id)
                                 } else if (!rangeEnd) {
                                   setRangeEnd(dateStr)
                                 } else {

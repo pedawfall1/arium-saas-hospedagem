@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { StatusBadge } from "@/components/ui/Badge"
 import { BookOpen, TrendingUp, Calendar } from "lucide-react"
-import { differenceInDays, parseISO, format, isAfter } from "date-fns"
+import { differenceInDays, parseISO, format } from "date-fns"
 
 export function ReservasClient({ bookings, properties }: { bookings: any[], properties: any[] }) {
   const router = useRouter()

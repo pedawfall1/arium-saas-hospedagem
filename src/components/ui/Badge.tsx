@@ -49,7 +49,3 @@ export function PlanBadge({ plan }: { plan: string }) {
     </span>
   )
 }
-
-export function Badge({ children, variant = "default" }: any) {
-  return <StatusBadge status={variant} />
-}
