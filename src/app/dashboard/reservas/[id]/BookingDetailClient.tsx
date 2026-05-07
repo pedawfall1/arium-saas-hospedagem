@@ -4,6 +4,8 @@ import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { formatCurrency, formatDate } from "@/lib/utils"
+import { format, parseISO } from "date-fns"
+import { ptBR } from "date-fns/locale"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 
@@ -159,6 +161,10 @@ export function BookingDetailClient({ booking, tenantName }: any) {
           <div style={{ marginBottom: '12px' }}>
             <p style={labelStyle}>Check-out</p>
             <p style={valueStyle}>{formatDate(booking.check_out)}</p>
+          </div>
+          <div style={{ marginBottom: '12px' }}>
+            <p style={labelStyle}>Data da Reserva</p>
+            <p style={valueStyle}>{format(parseISO(booking.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
           </div>
           <div style={{ marginBottom: '12px' }}>
             <p style={labelStyle}>Hóspedes</p>
