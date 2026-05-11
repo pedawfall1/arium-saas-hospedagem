@@ -35,11 +35,23 @@ export function RelatoriosClient({ bookings, properties }: { bookings: any[], pr
       .react-datepicker-popper {
         z-index: 9999 !important;
       }
+      .react-datepicker-wrapper {
+        width: 100%;
+        display: block;
+      }
+      .react-datepicker__triangle {
+        display: none !important;
+      }
       .react-datepicker {
         background-color: var(--surface) !important;
         border: 1px solid var(--border) !important;
         border-radius: 12px !important;
         font-family: inherit !important;
+      }
+      @media (max-width: 480px) {
+        .react-datepicker {
+          font-size: 0.9em !important;
+        }
       }
       .react-datepicker__header {
         background-color: var(--surface) !important;
@@ -159,7 +171,7 @@ export function RelatoriosClient({ bookings, properties }: { bookings: any[], pr
                 type="text"
                 value={startDate ? format(parseISO(startDate), 'dd/MM/yyyy') : ''}
                 readOnly
-                style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none', cursor: 'pointer' }}
+                style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', cursor: 'pointer' }}
               />
             }
           />
@@ -177,7 +189,7 @@ export function RelatoriosClient({ bookings, properties }: { bookings: any[], pr
                 type="text"
                 value={endDate ? format(parseISO(endDate), 'dd/MM/yyyy') : ''}
                 readOnly
-                style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none', cursor: 'pointer' }}
+                style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', cursor: 'pointer' }}
               />
             }
           />

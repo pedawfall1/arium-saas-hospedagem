@@ -194,7 +194,7 @@ export default async function TenantDashboardPage() {
       <div className="dash-main-grid">
         
         {/* Left column */}
-        <div>
+        <div style={{ minWidth: 0, maxWidth: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
             <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 700, whiteSpace: 'nowrap' }}>
               Reservas recentes
@@ -211,7 +211,7 @@ export default async function TenantDashboardPage() {
         </div>
 
         {/* Right column */}
-        <div>
+        <div style={{ minWidth: 0, maxWidth: '100%' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
             <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 700, whiteSpace: 'nowrap' }}>
               Ações rápidas

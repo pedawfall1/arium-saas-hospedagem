@@ -122,7 +122,7 @@ export function BookingDetailClient({ booking, tenantName }: any) {
       </div>
 
       {/* 2-column grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px', marginBottom: '16px' }}>
         {/* Left card - Guest details */}
         <div style={cardStyle}>
           <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>
@@ -143,9 +143,15 @@ export function BookingDetailClient({ booking, tenantName }: any) {
             </a>
           </div>
           {booking.guest_email && (
-            <div>
+            <div style={booking.guest_city ? { marginBottom: '12px' } : {}}>
               <p style={labelStyle}>E-mail</p>
               <p style={valueStyle}>{booking.guest_email}</p>
+            </div>
+          )}
+          {booking.guest_city && (
+            <div>
+              <p style={labelStyle}>Cidade</p>
+              <p style={valueStyle}>{booking.guest_city}</p>
             </div>
           )}
         </div>
@@ -208,8 +214,8 @@ export function BookingDetailClient({ booking, tenantName }: any) {
         <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>
           Status
         </h2>
-        <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
-          <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+          <div style={{ flex: '1 1 200px' }}>
             <p style={labelStyle}>Status Geral</p>
             <select
               value={status}
@@ -222,7 +228,7 @@ export function BookingDetailClient({ booking, tenantName }: any) {
                 border: '1px solid var(--border)',
                 backgroundColor: 'var(--bg)',
                 color: 'var(--text)',
-                fontSize: '14px',
+                fontSize: '16px',
                 cursor: 'pointer',
               }}
             >
@@ -233,7 +239,7 @@ export function BookingDetailClient({ booking, tenantName }: any) {
               <option value="cancelled">Cancelada</option>
             </select>
           </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: '1 1 200px' }}>
             <p style={labelStyle}>Pagamento</p>
             <select
               value={paymentStatus}
@@ -246,7 +252,7 @@ export function BookingDetailClient({ booking, tenantName }: any) {
                 border: '1px solid var(--border)',
                 backgroundColor: 'var(--bg)',
                 color: 'var(--text)',
-                fontSize: '14px',
+                fontSize: '16px',
                 cursor: 'pointer',
               }}
             >
@@ -257,7 +263,7 @@ export function BookingDetailClient({ booking, tenantName }: any) {
             </select>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{
             padding: '6px 12px',
             borderRadius: '6px',

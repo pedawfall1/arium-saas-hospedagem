@@ -595,7 +595,7 @@ body::before {
   .mobile-header { display: flex !important; }
   .dashboard-main {
     margin-left: 0 !important;
-    padding: 56px 16px calc(32px + 64px + env(safe-area-inset-bottom, 0px)) !important;
+    padding: 88px 16px calc(32px + 64px + env(safe-area-inset-bottom, 0px)) !important;
   }
   .dash-stats {
     grid-template-columns: repeat(2, 1fr) !important;

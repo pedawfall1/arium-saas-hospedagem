@@ -57,7 +57,7 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
     borderRadius: '8px',
     padding: '10px 16px',
     color: 'var(--text)',
-    fontSize: '14px',
+    fontSize: '16px',
     outline: 'none',
     cursor: 'pointer',
     minWidth: '180px',
