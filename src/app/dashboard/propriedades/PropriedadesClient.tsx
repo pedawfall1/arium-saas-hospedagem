@@ -232,31 +232,31 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Dias Úteis (R$)</label>
                     <input 
                       type="number"
                       value={activeProp.base_price_weekday || ''} 
                       onChange={e => handlePriceChange('base_price_weekday', Number(e.target.value))} 
-                      style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }}
+                      style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none' }}
                     />
                   </div>
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Fim de Semana (R$)</label>
                     <input 
                       type="number"
                       value={activeProp.base_price_weekend || ''} 
                       onChange={e => handlePriceChange('base_price_weekend', Number(e.target.value))} 
-                      style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }}
+                      style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none' }}
                     />
                   </div>
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Isolada Dia Útil (R$)</label>
                     <input
                       type="number"
                       value={activeProp.single_night_weekday_price || ''}
                       onChange={e => handlePriceChange('single_night_weekday_price', Number(e.target.value))}
-                      style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }}
+                      style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none' }}
                     />
                   </div>
                 </div>
@@ -264,33 +264,33 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                 <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
                   <h3 style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600, marginBottom: '16px' }}>Mínimo de Noites</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Semana (dom-qui)</label>
                       <input
                         type="number"
                         value={activeProp.min_nights_weekday || ''}
                         onChange={e => handlePriceChange('min_nights_weekday', Number(e.target.value))}
-                        style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }}
+                        style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none' }}
                       />
                       <p style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px' }}>Aplica-se a reservas iniciando neste período.</p>
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Final de semana</label>
                       <input
                         type="number"
                         value={activeProp.min_nights_weekend || ''}
                         onChange={e => handlePriceChange('min_nights_weekend', Number(e.target.value))}
-                        style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }}
+                        style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none' }}
                       />
                       <p style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px' }}>Aplica-se a reservas iniciando neste período.</p>
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Feriados</label>
                       <input
                         type="number"
                         value={activeProp.min_nights_holiday || ''}
                         onChange={e => handlePriceChange('min_nights_holiday', Number(e.target.value))}
-                        style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }}
+                        style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none' }}
                       />
                       <p style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px' }}>Aplica-se a reservas iniciando neste período.</p>
                     </div>
@@ -359,25 +359,25 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                   )}
 
                   <form onSubmit={(e) => handleAddHoliday(e, activeProp.id)} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', alignItems: 'end' }}>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Nome do Feriado</label>
-                      <input required value={newHoliday.name} onChange={e => setNewHoliday({...newHoliday, name: e.target.value})} placeholder="Ex: Natal" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }} />
+                      <input required value={newHoliday.name} onChange={e => setNewHoliday({...newHoliday, name: e.target.value})} placeholder="Ex: Natal" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Data Inicial</label>
-                      <input type="date" required value={newHoliday.date_from} onChange={e => setNewHoliday({...newHoliday, date_from: e.target.value})} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }} />
+                      <input type="date" required value={newHoliday.date_from} onChange={e => setNewHoliday({...newHoliday, date_from: e.target.value})} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Data Final</label>
-                      <input type="date" required value={newHoliday.date_to} onChange={e => setNewHoliday({...newHoliday, date_to: e.target.value})} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }} />
+                      <input type="date" required value={newHoliday.date_to} onChange={e => setNewHoliday({...newHoliday, date_to: e.target.value})} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Preço/noite (R$)</label>
-                      <input type="number" value={newHoliday.price} onChange={e => setNewHoliday({...newHoliday, price: e.target.value})} placeholder="Opcional" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }} />
+                      <input type="number" value={newHoliday.price} onChange={e => setNewHoliday({...newHoliday, price: e.target.value})} placeholder="Opcional" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Mínimo de noites</label>
-                      <input type="number" required value={newHoliday.min_nights} onChange={e => setNewHoliday({...newHoliday, min_nights: e.target.value})} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }} />
+                      <input type="number" required value={newHoliday.min_nights} onChange={e => setNewHoliday({...newHoliday, min_nights: e.target.value})} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
                     </div>
                     <button type="submit" disabled={savingHoliday} style={{ backgroundColor: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '8px', padding: '11px 24px', fontSize: '14px', cursor: 'pointer', fontWeight: 600, height: '45px' }}>
                       {savingHoliday ? "..." : "Adicionar"}
