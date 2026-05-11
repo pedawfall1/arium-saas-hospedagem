@@ -552,7 +552,7 @@
 
 .dash-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   margin-bottom: 32px;
 }
@@ -566,7 +566,7 @@
 
 @media (max-width: 1023px) {
   .dash-stats {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
   .dash-main-grid {
     grid-template-columns: 1fr;
@@ -598,7 +598,7 @@ body::before {
     padding: 88px 16px calc(32px + 64px + env(safe-area-inset-bottom, 0px)) !important;
   }
   .dash-stats {
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: 1fr !important;
     gap: 12px !important;
   }
   .dash-stats > a,

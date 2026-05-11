@@ -40,13 +40,7 @@ export default async function TenantDashboardPage() {
   const currentMonth = now.getMonth()
   const currentYear = now.getFullYear()
 
-  const totalBookings = bookings.length
-  
-  const confirmedThisMonth = bookings.filter(b => {
-    if (b.status !== 'confirmed') return false
-    const d = new Date(b.check_in + "T00:00:00")
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear
-  }).length
+  const pendingBookings = bookings.filter(b => b.status === 'pending').length
 
   const revenueThisMonth = bookings.filter(b => {
     if (b.payment_status !== 'deposit_paid' && b.payment_status !== 'fully_paid') return false
@@ -133,29 +127,15 @@ export default async function TenantDashboardPage() {
 
       {/* Stat cards */}
       <div className="dash-stats">
-        <Link href="/dashboard/reservas" style={{ textDecoration: 'none' }} className="stat-card stat-total">
-          <div className="stat-card-inner" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', borderTop: '3px solid #7c3aed', height: '100%' }}>
+        <Link href="/dashboard/reservas?status=pending" style={{ textDecoration: 'none' }} className="stat-card stat-pending">
+          <div className="stat-card-inner" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', borderTop: '3px solid #ef4444', height: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '8px' }}>Total de reservas</p>
-                <p className="stat-number" style={{ fontSize: 'clamp(24px, 6vw, 40px)', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: '#7c3aed' }}>{totalBookings}</p>
+                <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '8px' }}>Aguardando ação</p>
+                <p className="stat-number" style={{ fontSize: 'clamp(24px, 6vw, 40px)', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: '#ef4444' }}>{pendingBookings}</p>
               </div>
-              <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'var(--purple-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(124,58,237,0.2)' }}>
-                <BookOpen size={20} color="var(--accent)" />
-              </div>
-            </div>
-          </div>
-        </Link>
-
-        <Link href="/dashboard/reservas?status=confirmed" style={{ textDecoration: 'none' }} className="stat-card stat-confirmed">
-          <div className="stat-card-inner" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', borderTop: '3px solid #22c55e', height: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '8px' }}>Confirmadas este mês</p>
-                <p className="stat-number" style={{ fontSize: 'clamp(24px, 6vw, 40px)', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: '#22c55e' }}>{confirmedThisMonth}</p>
-              </div>
-              <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'rgba(34,197,94,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(34,197,94,0.2)' }}>
-                <BookOpen size={20} color="#4ade80" />
+              <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'rgba(239,68,68,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(239,68,68,0.2)' }}>
+                <BookOpen size={20} color="#f87171" />
               </div>
             </div>
           </div>
