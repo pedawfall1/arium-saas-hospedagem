@@ -138,7 +138,7 @@ export default async function TenantDashboardPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '8px' }}>Total de reservas</p>
-                <p className="stat-number" style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: '#7c3aed' }}>{totalBookings}</p>
+                <p className="stat-number" style={{ fontSize: 'clamp(24px, 6vw, 40px)', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: '#7c3aed' }}>{totalBookings}</p>
               </div>
               <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'var(--purple-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(124,58,237,0.2)' }}>
                 <BookOpen size={20} color="var(--accent)" />
@@ -152,7 +152,7 @@ export default async function TenantDashboardPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '8px' }}>Confirmadas este mês</p>
-                <p className="stat-number" style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: '#22c55e' }}>{confirmedThisMonth}</p>
+                <p className="stat-number" style={{ fontSize: 'clamp(24px, 6vw, 40px)', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: '#22c55e' }}>{confirmedThisMonth}</p>
               </div>
               <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'rgba(34,197,94,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(34,197,94,0.2)' }}>
                 <BookOpen size={20} color="#4ade80" />
@@ -166,7 +166,7 @@ export default async function TenantDashboardPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '8px' }}>Receita este mês</p>
-                <p className="stat-number" style={{ fontSize: '40px', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: '#f97b00' }}>{formatCurrency(revenueThisMonth)}</p>
+                <p className="stat-number" style={{ fontSize: 'clamp(22px, 5vw, 40px)', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: '#f97b00', whiteSpace: 'nowrap' }}>{formatCurrency(revenueThisMonth)}</p>
               </div>
               <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'rgba(249,123,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(249,123,0,0.2)' }}>
                 <TrendingUp size={20} color="#fb923c" />

@@ -1,11 +1,13 @@
 "use client"
 
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { formatDate } from "@/lib/utils"
 import { StatusBadge } from "@/components/ui/Badge"
 import { BookOpen } from "lucide-react"
 
 export function RecentBookingsTable({ bookings }: { bookings: any[] }) {
+  const router = useRouter()
+
   if (bookings.length === 0) {
     return (
       <div style={{ padding: '48px', textAlign: 'center' }}>
@@ -49,10 +51,10 @@ export function RecentBookingsTable({ bookings }: { bookings: any[] }) {
             <tr
               key={b.id}
               className="booking-row"
+              onClick={() => router.push(`/dashboard/reservas/${b.id}`)}
               style={{ borderBottom: i < bookings.length - 1 ? '1px solid rgba(138,43,226,0.08)' : 'none', position: 'relative' }}
             >
               <td style={{ padding: '16px 24px', color: 'var(--text)', fontSize: '14px', whiteSpace: 'nowrap' }}>
-                <Link href={`/dashboard/reservas/${b.id}`} style={{ position: 'absolute', inset: 0 }} aria-label={`Ver reserva de ${b.guest_name}`} />
                 {b.properties?.name}
               </td>
               <td style={{ padding: '16px 24px', color: 'var(--text)', fontSize: '14px', whiteSpace: 'nowrap' }}>{b.guest_name}</td>
