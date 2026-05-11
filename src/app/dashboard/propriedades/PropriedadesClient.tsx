@@ -231,7 +231,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                   <p style={{ color: 'var(--muted)', fontSize: '13px' }}>Tarifas padrão por tipo de dia.</p>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                   <div style={{ minWidth: 0 }}>
                     <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Dias Úteis (R$)</label>
                     <input 
@@ -263,7 +263,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
 
                 <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
                   <h3 style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600, marginBottom: '16px' }}>Mínimo de Noites</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))', gap: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                     <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Semana (dom-qui)</label>
                       <input
@@ -358,18 +358,18 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                     </div>
                   )}
 
-                  <form onSubmit={(e) => handleAddHoliday(e, activeProp.id)} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))', gap: '16px', alignItems: 'end' }}>
+                  <form onSubmit={(e) => handleAddHoliday(e, activeProp.id)} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', alignItems: 'end' }}>
                     <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Nome do Feriado</label>
                       <input required value={newHoliday.name} onChange={e => setNewHoliday({...newHoliday, name: e.target.value})} placeholder="Ex: Natal" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Data Inicial</label>
-                      <input type="date" required value={newHoliday.date_from} onChange={e => setNewHoliday({...newHoliday, date_from: e.target.value})} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
+                      <input type="date" required value={newHoliday.date_from} onChange={e => setNewHoliday({...newHoliday, date_from: e.target.value})} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 12px', color: 'var(--text)', fontSize: '16px', width: '100%', maxWidth: '100%', WebkitAppearance: 'none', appearance: 'none', outline: 'none', boxSizing: 'border-box' }} />
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Data Final</label>
-                      <input type="date" required value={newHoliday.date_to} onChange={e => setNewHoliday({...newHoliday, date_to: e.target.value})} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
+                      <input type="date" required value={newHoliday.date_to} onChange={e => setNewHoliday({...newHoliday, date_to: e.target.value})} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 12px', color: 'var(--text)', fontSize: '16px', width: '100%', maxWidth: '100%', WebkitAppearance: 'none', appearance: 'none', outline: 'none', boxSizing: 'border-box' }} />
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Preço/noite (R$)</label>
