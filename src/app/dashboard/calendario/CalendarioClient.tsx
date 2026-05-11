@@ -363,21 +363,23 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
           borderBottom: '1px solid var(--border)',
           flexWrap: 'wrap',
         }}>
-          {/* Lista toggle — mobile only */}
-          <button onClick={() => setMobileView(v => v === 'grid' ? 'list' : 'grid')} className="mobile-only-btn" style={headerBtnStyle}>
-            {mobileView === 'list' ? '📅 Grade' : '📋 Lista'}
-          </button>
+          <div style={{ display: 'flex', gap: '8px', flex: '1 1 auto', minWidth: '200px' }}>
+            {/* Lista toggle — mobile only */}
+            <button onClick={() => setMobileView(v => v === 'grid' ? 'list' : 'grid')} className="mobile-only-btn" style={{ ...headerBtnStyle, flex: 1 }}>
+              {mobileView === 'list' ? '📅 Grade' : '📋 Lista'}
+            </button>
 
-          {/* Selecionar período */}
-          <button
-            onClick={() => setRangeMode(!rangeMode)}
-            style={rangeMode ? { ...headerBtnStyle, backgroundColor: 'var(--purple)', color: 'white', border: 'none', fontWeight: 600 } : headerBtnStyle}
-          >
-            {rangeMode ? '✕ Cancelar' : 'Selecionar período'}
-          </button>
+            {/* Selecionar período */}
+            <button
+              onClick={() => setRangeMode(!rangeMode)}
+              style={rangeMode ? { ...headerBtnStyle, backgroundColor: 'var(--purple)', color: 'white', border: 'none', fontWeight: 600, flex: 1 } : { ...headerBtnStyle, flex: 1 }}
+            >
+              {rangeMode ? '✕ Cancelar' : 'Selecionar período'}
+            </button>
+          </div>
 
           {/* + Bloquear data */}
-          <button onClick={() => setShowBlockForm(true)} style={primaryBtnStyle}>
+          <button onClick={() => setShowBlockForm(true)} style={{ ...primaryBtnStyle, flex: '1 1 auto', whiteSpace: 'nowrap' }}>
             + Bloquear data
           </button>
         </div>
@@ -676,30 +678,35 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                     {/* Status badges */}
                     {booking && (filterProperty === 'all' || booking.property_id === filterProperty) && (
                       <div style={{
-                        padding: '2px 6px',
+                        padding: '2px 4px',
                         borderRadius: '4px',
                         fontSize: 'clamp(8px, 1.8vw, 11px)',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
+                        maxWidth: '100%',
+                        textAlign: 'center',
                         backgroundColor: propertyIndex(booking.property_id) === 0 ? 'rgba(124,58,237,0.3)' : 'rgba(249,115,22,0.3)',
                         color: propertyIndex(booking.property_id) === 0 ? 'var(--accent)' : '#fb923c',
                         opacity: isPast ? 0.35 : 1,
                       }}>
-                        {booking.guest_name}
+                        Reservado
                       </div>
                     )}
 
                     {!booking && isBlocked && blocks.some((b: any) => filterProperty === 'all' || b.property_id === filterProperty) && (
                       <div style={{
-                        padding: '2px 6px',
+                        padding: '2px 4px',
                         borderRadius: '4px',
                         fontSize: 'clamp(8px, 1.8vw, 11px)',
                         backgroundColor: propertyIndex(filterProperty) === 0 ? '#ef444422' : '#eab30822',
                         color: propertyIndex(filterProperty) === 0 ? '#ef4444' : '#eab308',
                         border: `1px solid ${propertyIndex(filterProperty) === 0 ? '#ef444444' : '#eab30844'}`,
                         textAlign: 'center',
+                        whiteSpace: 'nowrap',
                         overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: '100%',
                         opacity: isPast ? 0.35 : 1,
                       }}>
                         Bloqueado
