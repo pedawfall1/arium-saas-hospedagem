@@ -82,7 +82,7 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
               <BookOpen size={20} color="var(--purple)" />
             </div>
           </div>
-          <p style={{ color: '#7c3aed', fontSize: '40px', fontWeight: 800 }}>{totalReservas}</p>
+          <p style={{ color: '#7c3aed', fontSize: 'clamp(24px, 6vw, 40px)', fontWeight: 800 }}>{totalReservas}</p>
         </div>
 
         {/* Stat 2 */}
@@ -93,7 +93,7 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
               <TrendingUp size={20} color="var(--purple)" />
             </div>
           </div>
-          <p style={{ color: '#f97b00', fontSize: '40px', fontWeight: 800 }}>{formatCurrency(receitaConfirmada)}</p>
+          <p style={{ color: '#f97b00', fontSize: 'clamp(22px, 5vw, 40px)', fontWeight: 800, whiteSpace: 'nowrap' }}>{formatCurrency(receitaConfirmada)}</p>
         </div>
 
         {/* Stat 3 */}
@@ -152,7 +152,10 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
 
           {/* Date from */}
           <input
-            type="date"
+            type={filterDateFrom ? "date" : "text"}
+            onFocus={(e) => (e.target.type = "date")}
+            onBlur={(e) => { if (!e.target.value) e.target.type = "text" }}
+            placeholder="Data Inicial"
             value={filterDateFrom}
             onChange={e => setFilterDateFrom(e.target.value)}
             style={{ ...filterSelectStyle, flex: '1 1 140px', minWidth: '140px' }}
@@ -160,7 +163,10 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
 
           {/* Date to */}
           <input
-            type="date"
+            type={filterDateTo ? "date" : "text"}
+            onFocus={(e) => (e.target.type = "date")}
+            onBlur={(e) => { if (!e.target.value) e.target.type = "text" }}
+            placeholder="Data Final"
             value={filterDateTo}
             onChange={e => setFilterDateTo(e.target.value)}
             style={{ ...filterSelectStyle, flex: '1 1 140px', minWidth: '140px' }}
