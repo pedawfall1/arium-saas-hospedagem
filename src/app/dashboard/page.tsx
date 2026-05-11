@@ -4,6 +4,7 @@ import { BookOpen, Calendar, Settings2, BarChart2, ChevronRight, TrendingUp } fr
 import Link from "next/link"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { RecentBookingsTable } from "@/components/dashboard/RecentBookingsTable"
+import { RevenueChart } from "@/components/dashboard/RevenueChart"
 
 export const revalidate = 30
 
@@ -168,6 +169,12 @@ export default async function TenantDashboardPage() {
             </div>
           </div>
         </Link>
+      </div>
+
+      {/* Revenue Chart Section */}
+      <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', marginBottom: '32px' }}>
+        <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 700, marginBottom: '24px' }}>Receita dos últimos 6 meses</h2>
+        <RevenueChart bookings={bookings} />
       </div>
 
       {/* Two column layout */}
