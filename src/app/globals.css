@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    color-scheme: dark;
     --bg: #08080f;
     --surface: #0f0f1e;
     --sidebar: #0a0a18;
@@ -13,6 +14,8 @@
     --purple: #7c3aed;
     --border: rgba(255, 255, 255, 0.1);
   }
+
+
 
   * {
     box-sizing: border-box;
@@ -616,6 +619,7 @@ body::before {
 
 /* ===== DARK/LIGHT MODE ===== */
 [data-theme="light"] {
+  color-scheme: light;
   --bg: #f5f5fa;
   --surface: #ffffff;
   --sidebar: #ffffff;
@@ -625,6 +629,14 @@ body::before {
   --accent: #7c3aed;
   --purple: #7c3aed;
   --purple-dim: rgba(124,58,237,0.08);
+}
+
+[data-theme="light"] ::-webkit-calendar-picker-indicator {
+  filter: none;
+  opacity: 0.5;
+}
+[data-theme="light"] ::-webkit-calendar-picker-indicator:hover {
+  opacity: 0.8;
 }
 
 /* ===== CALENDAR VIEW TOGGLE ===== */
@@ -731,4 +743,17 @@ body::before {
 .gradient-orange {
   color: #fb923c;
   text-shadow: 0 0 30px rgba(249,115,0,0.7), 0 0 60px rgba(249,115,0,0.4);
+}
+
+/* ===== FIX CALENDAR ICONS (HIGH SPECIFICITY) ===== */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(2) !important;
+  opacity: 1 !important;
+  cursor: pointer;
+}
+
+input[type="date"],
+input[type="datetime-local"] {
+  color-scheme: dark;
 }

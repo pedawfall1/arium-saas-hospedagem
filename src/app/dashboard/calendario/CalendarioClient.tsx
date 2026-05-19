@@ -10,6 +10,7 @@ import { StatusBadge } from "@/components/ui/Badge"
 import { formatDate } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
+import { useConfirm } from "@/components/ConfirmModal"
 
 export function CalendarioClient({ properties, bookings, allBookings, blockedDates, holidays, tenantName }: any) {
   // Add CSS for mobile-only button
@@ -50,6 +51,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
   const [calendarMode, setCalendarMode] = useState<'split' | 'unified'>('split')
   const [rangeReason, setRangeReason] = useState('')
   const [rangeGuestName, setRangeGuestName] = useState('')
+  const { ConfirmModal, confirm } = useConfirm()
 
   // Unified button styles
   const headerBtnStyle = {
@@ -196,7 +198,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
   }
 
   const handleUnblock = async (id: string) => {
-    if (!confirm('Deseja realmente desbloquear esta data?')) return
+    if (!(await confirm('Desbloquear data', 'Deseja realmente desbloquear esta data?'))) return
     setLoading(true)
     await supabase.from('blocked_dates').delete().eq('id', id)
     setLoading(false)
@@ -226,6 +228,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
 
   return (
     <div style={{ width: '100%' }}>
+      <ConfirmModal />
       <style>{`
         .cal-cell:hover { background-color: var(--purple-dim) !important; }
       `}</style>
@@ -456,7 +459,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
               </button>
               <button
                 onClick={async () => {
-                  if (!confirm('Deseja realmente desbloquear este período?')) return
+                  if (!(await confirm('Desbloquear período', 'Deseja realmente desbloquear este período?'))) return
                   setLoading(true)
                   const start = new Date(rangeStart)
                   const end = new Date(rangeEnd)

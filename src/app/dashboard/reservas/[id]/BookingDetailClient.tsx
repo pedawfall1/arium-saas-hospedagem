@@ -9,6 +9,7 @@ import { ptBR } from "date-fns/locale"
 import { toZonedTime, format as formatTz } from "date-fns-tz"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
+import { useConfirm } from "@/components/ConfirmModal"
 
 const cardStyle = {
   backgroundColor: 'var(--surface)',
@@ -38,9 +39,10 @@ export function BookingDetailClient({ booking, tenantName }: any) {
   const [notesSaving, setNotesSaving] = useState(false)
   const [status, setStatus] = useState(booking.status)
   const [paymentStatus, setPaymentStatus] = useState(booking.payment_status)
+  const { ConfirmModal, confirm } = useConfirm()
 
   const handleDelete = async () => {
-    if (!confirm('Tem certeza que deseja excluir esta reserva? Esta ação não pode ser desfeita.')) return
+    if (!(await confirm('Excluir Reserva', 'Tem certeza que deseja excluir esta reserva? Esta ação não pode ser desfeita.'))) return
     setLoading(true)
     await supabase.from('bookings').delete().eq('id', booking.id)
     router.push('/dashboard/reservas')
@@ -95,6 +97,7 @@ export function BookingDetailClient({ booking, tenantName }: any) {
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+      <ConfirmModal />
       {/* Back link */}
       <Link
         href="/dashboard/reservas"
