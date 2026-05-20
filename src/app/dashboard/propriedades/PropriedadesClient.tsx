@@ -199,6 +199,30 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
     setSavingHoliday(false)
   }
 
+  const handleQuickAddHoliday = async (e: React.FormEvent, form: HTMLFormElement, propertyId: string) => {
+    e.preventDefault()
+    setSavingHoliday(true)
+    const dateInput = form.elements.namedItem('singleDate') as HTMLInputElement;
+    const priceInput = form.elements.namedItem('singlePrice') as HTMLInputElement;
+    const date = dateInput.value;
+    const price = priceInput.value;
+
+    const holidayObj = {
+      property_id: propertyId,
+      name: 'Diária Única (Exceção)',
+      date_from: date,
+      date_to: date,
+      price: price ? Number(price) : null,
+      min_nights: 1,
+    }
+    const { data } = await supabase.from('holidays').insert([holidayObj]).select()
+    if (data && data.length > 0) {
+      setHolidays([...holidays, data[0]])
+      form.reset()
+    }
+    setSavingHoliday(false)
+  }
+
   const handleDeleteHoliday = async (id: string) => {
     if (!(await confirm("Excluir feriado", "Remover este feriado?"))) return
     await supabase.from('holidays').delete().eq('id', id)
@@ -451,9 +475,9 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                   {activeHolidays.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
                       {activeHolidays.map((h: any) => (
-                        <div key={h.id} style={{ display: 'flex', flexDirection: 'column', padding: '12px 16px', border: '1px solid var(--border)', borderRadius: '8px', backgroundColor: 'var(--bg)' }}>
+                        <div key={h.id} style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: '8px', backgroundColor: 'var(--bg)' }}>
                           {editingHoliday === h.id ? (
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', padding: '12px 16px' }}>
                               <input value={editHolidayData.name} onChange={e => setEditHolidayData({...editHolidayData, name: e.target.value})} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px', width: '140px' }} placeholder="Nome" />
                               <input type="date" value={editHolidayData.date_from} onChange={e => setEditHolidayData({...editHolidayData, date_from: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px' }} />
                               <input type="date" value={editHolidayData.date_to} onChange={e => setEditHolidayData({...editHolidayData, date_to: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px' }} />
@@ -465,27 +489,48 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                               </div>
                             </div>
                           ) : (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div>
-                                <p style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>{h.name}</p>
-                                <p style={{ color: 'var(--muted)', fontSize: '12px' }}>
+                            <div style={{
+                              position: 'relative',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'flex-start',
+                              gap: '8px',
+                              padding: '16px'
+                            }}>
+                              <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '4px'
+                              }}>
+                                <p style={{ fontWeight: 600, color: '#ffffff', fontSize: '14px' }}>{h.name}</p>
+                                {h.price && (
+                                  <span style={{ color: '#a78bfa', fontWeight: 500, fontSize: '14px' }}>
+                                    {formatCurrency(h.price)}
+                                  </span>
+                                )}
+                                <p style={{ color: 'var(--muted)', fontSize: '12px', opacity: 0.7 }}>
                                   {formatDate(h.date_from)} até {formatDate(h.date_to)}
-                                  {h.min_nights && ` · Mín. ${h.min_nights} noites`}
+                                </p>
+                                <p style={{ color: 'var(--muted)', fontSize: '12px', opacity: 0.7 }}>
+                                  {h.min_nights ? `Mín. ${h.min_nights} noites` : 'Mín. 1 noite'}
                                 </p>
                               </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                {h.price && <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '14px' }}>{formatCurrency(h.price)}<span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--muted)' }}>/noite</span></span>}
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                  <button onClick={() => handleReplicateHoliday(h)} title="Replicar para outras propriedades" style={{ backgroundColor: 'rgba(139,92,246,0.1)', color: 'var(--purple)', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Copy size={16} />
-                                  </button>
-                                  <button onClick={() => handleEditHoliday(h)} title="Editar feriado" style={{ backgroundColor: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Edit2 size={16} />
-                                  </button>
-                                  <button onClick={() => handleDeleteHoliday(h.id)} title="Excluir feriado" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Trash2 size={16} />
-                                  </button>
-                                </div>
+                              <div style={{
+                                display: 'flex',
+                                gap: '8px',
+                                flexShrink: 0,
+                                alignSelf: 'flex-start',
+                                marginLeft: 'auto'
+                              }}>
+                                <button onClick={() => handleReplicateHoliday(h)} title="Replicar para outras propriedades" style={{ backgroundColor: 'rgba(139,92,246,0.1)', color: 'var(--purple)', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Copy size={16} />
+                                </button>
+                                <button onClick={() => handleEditHoliday(h)} title="Editar feriado" style={{ backgroundColor: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Edit2 size={16} />
+                                </button>
+                                <button onClick={() => handleDeleteHoliday(h.id)} title="Excluir feriado" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <Trash2 size={16} />
+                                </button>
                               </div>
                             </div>
                           )}
@@ -501,11 +546,11 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Data Inicial</label>
-                      <input type="date" required value={newHoliday.date_from} onChange={e => setNewHoliday({...newHoliday, date_from: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', maxWidth: '100%', minHeight: '48px', outline: 'none', boxSizing: 'border-box' }} />
+                      <input className="w-full max-w-full box-border" type="date" required value={newHoliday.date_from} onChange={e => setNewHoliday({...newHoliday, date_from: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', minHeight: '48px', outline: 'none' }} />
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Data Final</label>
-                      <input type="date" required value={newHoliday.date_to} onChange={e => setNewHoliday({...newHoliday, date_to: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', maxWidth: '100%', minHeight: '48px', outline: 'none', boxSizing: 'border-box' }} />
+                      <input className="w-full max-w-full box-border" type="date" required value={newHoliday.date_to} onChange={e => setNewHoliday({...newHoliday, date_to: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', minHeight: '48px', outline: 'none' }} />
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Preço/noite (R$)</label>
@@ -524,28 +569,10 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                   <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
                     <h3 style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>Liberar Diária Única (Exceção)</h3>
                     <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '16px' }}>Use para liberar apenas 1 noite em um dia que normalmente exigiria mais (ex: Sexta-feira que sobrou de um feriado).</p>
-                    <form onSubmit={(e) => {
-                      e.preventDefault()
-                      const form = e.target as HTMLFormElement
-                      const date = (form.elements.namedItem('singleDate') as HTMLInputElement).value
-                      const price = (form.elements.namedItem('singlePrice') as HTMLInputElement).value
-                      
-                      setNewHoliday({
-                        property_id: activeProp.id,
-                        name: 'Diária Única (Exceção)',
-                        date_from: date,
-                        date_to: date,
-                        price: price,
-                        min_nights: '1'
-                      })
-                      // The state update is async, so we call handleAddHoliday manually
-                      const syntheticEvent = { preventDefault: () => {} } as React.FormEvent
-                      handleAddHoliday(syntheticEvent, activeProp.id)
-                      setTimeout(() => form.reset(), 500)
-                    }} style={{ display: 'flex', gap: '16px', alignItems: 'end', flexWrap: 'wrap' }}>
+                    <form onSubmit={(e) => handleQuickAddHoliday(e, e.target as HTMLFormElement, activeProp.id)} style={{ display: 'flex', gap: '16px', alignItems: 'end', flexWrap: 'wrap' }}>
                       <div style={{ flex: '1', minWidth: '180px' }}>
                         <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Data a liberar</label>
-                        <input name="singleDate" type="date" required style={{ colorScheme: 'light', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', minHeight: '48px', outline: 'none', boxSizing: 'border-box' }} />
+                        <input className="w-full max-w-full box-border" name="singleDate" type="date" required style={{ colorScheme: 'light', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', minHeight: '48px', outline: 'none' }} />
                       </div>
                       <div style={{ flex: '1', minWidth: '180px' }}>
                         <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Preço/noite (R$)</label>
