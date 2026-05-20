@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { formatCurrency, formatDate } from "@/lib/utils"
@@ -40,6 +40,53 @@ export function BookingDetailClient({ booking, tenantName }: any) {
   const [status, setStatus] = useState(booking.status)
   const [paymentStatus, setPaymentStatus] = useState(booking.payment_status)
   const { ConfirmModal, confirm } = useConfirm()
+
+  const [isEditingDates, setIsEditingDates] = useState(false)
+  const [newCheckIn, setNewCheckIn] = useState(booking.check_in)
+  const [newCheckOut, setNewCheckOut] = useState(booking.check_out)
+  const [newTotalAmount, setNewTotalAmount] = useState(booking.total_amount)
+  const [loadingDates, setLoadingDates] = useState(false)
+  const [errorMsg, setErrorMsg] = useState("")
+
+  useEffect(() => {
+    setNewCheckIn(booking.check_in)
+    setNewCheckOut(booking.check_out)
+    setNewTotalAmount(booking.total_amount)
+  }, [booking.check_in, booking.check_out, booking.total_amount])
+
+  const handleReschedule = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoadingDates(true)
+    setErrorMsg("")
+
+    try {
+      if (!newCheckIn || !newCheckOut) {
+        throw new Error("Por favor, preencha as datas de check-in e check-out.")
+      }
+
+      if (new Date(newCheckIn) >= new Date(newCheckOut)) {
+        throw new Error("A data de check-out deve ser posterior à data de check-in.")
+      }
+
+      const { error } = await supabase
+        .from('bookings')
+        .update({
+          check_in: newCheckIn,
+          check_out: newCheckOut,
+          total_amount: Number(newTotalAmount)
+        })
+        .eq('id', booking.id)
+
+      if (error) throw error
+
+      setIsEditingDates(false)
+      router.refresh()
+    } catch (err: any) {
+      setErrorMsg(err.message || "Erro ao transferir reserva.")
+    } finally {
+      setLoadingDates(false)
+    }
+  }
 
   const handleDelete = async () => {
     if (!(await confirm('Excluir Reserva', 'Tem certeza que deseja excluir esta reserva? Esta ação não pode ser desfeita.'))) return
@@ -161,29 +208,161 @@ export function BookingDetailClient({ booking, tenantName }: any) {
 
         {/* Right card - Stay details */}
         <div style={cardStyle}>
-          <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>
-            Detalhes da Estadia
-          </h2>
-          <div style={{ marginBottom: '12px' }}>
-            <p style={labelStyle}>Check-in</p>
-            <p style={valueStyle}>{formatDate(booking.check_in)}</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, margin: 0 }}>
+              Detalhes da Estadia
+            </h2>
+            {!isEditingDates && (
+              <button
+                onClick={() => {
+                  setNewCheckIn(booking.check_in)
+                  setNewCheckOut(booking.check_out)
+                  setNewTotalAmount(booking.total_amount)
+                  setIsEditingDates(true)
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--purple)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: 0
+                }}
+              >
+                🔄 Transferir datas
+              </button>
+            )}
           </div>
-          <div style={{ marginBottom: '12px' }}>
-            <p style={labelStyle}>Check-out</p>
-            <p style={valueStyle}>{formatDate(booking.check_out)}</p>
-          </div>
-          <div style={{ marginBottom: '12px' }}>
-            <p style={labelStyle}>Data da Reserva</p>
-            <p style={valueStyle}>{formatTz(toZonedTime(new Date(booking.created_at), 'America/Sao_Paulo'), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR, timeZone: 'America/Sao_Paulo' })}</p>
-          </div>
-          <div style={{ marginBottom: '12px' }}>
-            <p style={labelStyle}>Hóspedes</p>
-            <p style={valueStyle}>{booking.guests_count} pessoa{booking.guests_count !== 1 ? 's' : ''}</p>
-          </div>
-          <div>
-            <p style={labelStyle}>Cabana</p>
-            <p style={valueStyle}>{booking.properties?.name}</p>
-          </div>
+
+          {isEditingDates ? (
+            <form onSubmit={handleReschedule} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={labelStyle}>Novo Check-in</label>
+                <input
+                  type="date"
+                  required
+                  value={newCheckIn}
+                  onChange={(e) => setNewCheckIn(e.target.value)}
+                  style={{
+                    backgroundColor: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                    color: 'var(--text)',
+                    fontSize: '14px',
+                    width: '100%',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Novo Check-out</label>
+                <input
+                  type="date"
+                  required
+                  value={newCheckOut}
+                  onChange={(e) => setNewCheckOut(e.target.value)}
+                  style={{
+                    backgroundColor: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                    color: 'var(--text)',
+                    fontSize: '14px',
+                    width: '100%',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Novo Preço Total (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={newTotalAmount}
+                  onChange={(e) => setNewTotalAmount(e.target.value)}
+                  style={{
+                    backgroundColor: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                    color: 'var(--text)',
+                    fontSize: '14px',
+                    width: '100%',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+              {errorMsg && (
+                <p style={{ color: '#f87171', fontSize: '13px', margin: 0, fontWeight: 500 }}>{errorMsg}</p>
+              )}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                <button
+                  type="submit"
+                  disabled={loadingDates}
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    backgroundColor: 'var(--purple)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    opacity: loadingDates ? 0.7 : 1,
+                  }}
+                >
+                  {loadingDates ? 'Salvando...' : 'Confirmar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditingDates(false)
+                    setErrorMsg("")
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    backgroundColor: 'transparent',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    color: 'var(--text)',
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <div style={{ marginBottom: '12px' }}>
+                <p style={labelStyle}>Check-in</p>
+                <p style={valueStyle}>{formatDate(booking.check_in)}</p>
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <p style={labelStyle}>Check-out</p>
+                <p style={valueStyle}>{formatDate(booking.check_out)}</p>
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <p style={labelStyle}>Data da Reserva</p>
+                <p style={valueStyle}>{formatTz(toZonedTime(new Date(booking.created_at), 'America/Sao_Paulo'), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR, timeZone: 'America/Sao_Paulo' })}</p>
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <p style={labelStyle}>Hóspedes</p>
+                <p style={valueStyle}>{booking.guests_count} pessoa{booking.guests_count !== 1 ? 's' : ''}</p>
+              </div>
+              <div>
+                <p style={labelStyle}>Cabana</p>
+                <p style={valueStyle}>{booking.properties?.name}</p>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
