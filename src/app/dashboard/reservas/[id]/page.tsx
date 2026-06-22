@@ -26,5 +26,17 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
   if (!booking) notFound()
 
-  return <BookingDetailClient booking={booking} tenantName={tenant.business_name} />
+  const [ { data: blockedDates }, { data: bookings } ] = await Promise.all([
+    supabase.from('blocked_dates').select('*').eq('property_id', booking.property_id),
+    supabase.from('bookings').select('id, check_in, check_out, property_id, status').eq('property_id', booking.property_id).in('status', ['confirmed', 'checked_in', 'completed'])
+  ])
+
+  return (
+    <BookingDetailClient 
+      booking={booking} 
+      tenantName={tenant.business_name} 
+      blockedDates={blockedDates || []}
+      bookings={bookings || []}
+    />
+  )
 }

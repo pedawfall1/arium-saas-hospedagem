@@ -4,8 +4,11 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { ArrowLeft } from "lucide-react"
+import { AriumDatePicker } from "@/components/ui/DatePicker"
+import { parseISO, eachDayOfInterval, addDays, isAfter, startOfDay, parse } from "date-fns"
+import { useMemo } from "react"
 
-export function NovaReservaClient({ properties }: { properties: any[] }) {
+export function NovaReservaClient({ properties, blockedDates = [], bookings = [] }: { properties: any[], blockedDates?: any[], bookings?: any[] }) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -25,6 +28,48 @@ export function NovaReservaClient({ properties }: { properties: any[] }) {
     notes: ""
   })
 
+  const [toast, setToast] = useState<{msg: string, type: 'error' | 'success'} | null>(null)
+
+  const [isFocused, setIsFocused] = useState({ total_amount: false, deposit_amount: false })
+
+  const unavailableDates = useMemo(() => {
+    const dates: Date[] = []
+    const pid = formData.property_id
+
+    blockedDates.forEach((b: any) => {
+      if (b.property_id === pid) {
+        dates.push(parseISO(b.date))
+      }
+    })
+
+    bookings.forEach((b: any) => {
+      if (b.property_id === pid) {
+        const start = parseISO(b.check_in)
+        const end = parseISO(b.check_out)
+        if (start < end) {
+          const interval = eachDayOfInterval({ start, end: addDays(end, -1) })
+          dates.push(...interval)
+        }
+      }
+    })
+
+    return dates.sort((a, b) => a.getTime() - b.getTime())
+  }, [blockedDates, bookings, formData.property_id])
+
+  const maxCheckOutDate = useMemo(() => {
+    if (!formData.check_in) return undefined
+    const checkInDate = startOfDay(parse(formData.check_in, 'yyyy-MM-dd', new Date()))
+    const nextBlocked = unavailableDates.find(d => isAfter(d, checkInDate))
+    return nextBlocked || undefined
+  }, [formData.check_in, unavailableDates])
+
+  const formatCurrency = (val: string | number) => {
+    if (val === "" || val === null || val === undefined) return ""
+    const num = Number(val)
+    if (isNaN(num)) return String(val)
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num)
+  }
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
@@ -33,34 +78,75 @@ export function NovaReservaClient({ properties }: { properties: any[] }) {
     e.preventDefault()
     setLoading(true)
     setErrorMsg("")
+    setToast(null)
 
     try {
-      if (!formData.property_id || !formData.guest_name || !formData.guest_phone || !formData.check_in || !formData.check_out || !formData.total_amount || !formData.deposit_amount) {
-        throw new Error("Por favor, preencha todos os campos obrigatórios.")
+      if (!formData.property_id || !formData.check_in || !formData.check_out) {
+        throw new Error("Por favor, preencha a cabana, check-in e check-out.")
       }
 
-      const { error } = await supabase.from('bookings').insert([{
+      if (formData.check_in >= formData.check_out) {
+        throw new Error("A data de check-out deve ser maior que a de check-in.")
+      }
+
+      const guests = Math.max(1, Number(formData.guests_count || 1))
+      const totalAmount = formData.total_amount ? Number(formData.total_amount) : 0
+      const depositAmount = formData.deposit_amount ? Number(formData.deposit_amount) : 0
+      const guestPhone = formData.guest_phone || "00000000000"
+      const guestName = formData.guest_name || "Hóspede (Reserva Manual)"
+
+      const { data, error } = await supabase.from('bookings').insert([{
         property_id: formData.property_id,
-        guest_name: formData.guest_name,
-        guest_phone: formData.guest_phone,
+        guest_name: guestName,
+        guest_phone: guestPhone,
         check_in: formData.check_in,
         check_out: formData.check_out,
-        guests_count: Number(formData.guests_count || 1),
-        total_amount: Number(formData.total_amount),
-        deposit_amount: Number(formData.deposit_amount),
-        notes: formData.notes || null,
+        guests_count: guests,
+        total_amount: totalAmount,
+        deposit_amount: depositAmount,
+        notes: formData.notes || 'Reserva manual',
         status: 'confirmed',
-        payment_status: 'awaiting_deposit'
-      }])
+        payment_status: 'fully_paid'
+      }]).select()
+
+      console.log('Insert em bookings: ', { data, error })
 
       if (error) {
         throw error
       }
 
+      // Inserir datas bloqueadas apenas se a reserva der certo
+      if (data && data.length > 0) {
+        const datesToBlock = []
+        let current = new Date(formData.check_in + 'T12:00:00')
+        const end = new Date(formData.check_out + 'T12:00:00')
+        while (current < end) {
+          datesToBlock.push({
+            property_id: formData.property_id,
+            date: current.toISOString().split('T')[0],
+            reason: 'Reserva manual: ' + guestName,
+            guest_name: guestName
+          })
+          current.setDate(current.getDate() + 1)
+        }
+        if (datesToBlock.length > 0) {
+          const { error: blockError } = await supabase.from('blocked_dates').insert(datesToBlock)
+          if (blockError) {
+            console.error('Erro ao bloquear datas:', blockError)
+          }
+        }
+      }
+
       setSuccess(true)
-      router.push('/dashboard/reservas')
+      setToast({ msg: "Reserva salva com sucesso!", type: 'success' })
+      setTimeout(() => {
+        router.push('/dashboard/reservas')
+      }, 1500)
     } catch (err: any) {
-      setErrorMsg(err.message || "Erro desconhecido ao salvar reserva.")
+      console.error(err)
+      const msg = err.message || "Erro desconhecido ao salvar reserva."
+      setErrorMsg(msg)
+      setToast({ msg, type: 'error' })
     } finally {
       setLoading(false)
     }
@@ -145,18 +231,18 @@ export function NovaReservaClient({ properties }: { properties: any[] }) {
           </div>
 
           <div>
-            <label style={labelStyle}>Nome completo (Hóspede) *</label>
+            <label style={labelStyle}>Nome completo (Hóspede)</label>
             <input 
-              required type="text" name="guest_name"
+              type="text" name="guest_name"
               value={formData.guest_name} onChange={handleChange}
               style={inputStyle} placeholder="Ex: João da Silva"
             />
           </div>
 
           <div>
-            <label style={labelStyle}>WhatsApp *</label>
+            <label style={labelStyle}>WhatsApp</label>
             <input 
-              required type="text" name="guest_phone"
+              type="text" name="guest_phone"
               value={formData.guest_phone} onChange={handleChange}
               style={inputStyle} placeholder="(XX) XXXXX-XXXX"
             />
@@ -171,49 +257,55 @@ export function NovaReservaClient({ properties }: { properties: any[] }) {
             />
           </div>
 
-          <div style={{ width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
+          <div style={{ width: '100%', boxSizing: 'border-box' }}>
             <label style={labelStyle}>Check-in *</label>
-            <input 
-              required type="date" name="check_in"
-              value={formData.check_in} onChange={handleChange}
-              style={{
-                ...inputStyle,
-                width: '100%',
-                boxSizing: 'border-box',
-                minWidth: 0,
-              }}
+            <AriumDatePicker 
+              required
+              value={formData.check_in}
+              onChange={(dateStr: string) => setFormData(prev => ({...prev, check_in: dateStr}))}
+              placeholder="dd/mm/aaaa"
+              excludeDates={unavailableDates}
             />
           </div>
 
-          <div style={{ width: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
+          <div style={{ width: '100%', boxSizing: 'border-box' }}>
             <label style={labelStyle}>Check-out *</label>
-            <input 
-              required type="date" name="check_out"
-              value={formData.check_out} onChange={handleChange}
-              style={{
-                ...inputStyle,
-                width: '100%',
-                boxSizing: 'border-box',
-                minWidth: 0,
-              }}
+            <AriumDatePicker 
+              required
+              value={formData.check_out}
+              onChange={(dateStr: string) => setFormData(prev => ({...prev, check_out: dateStr}))}
+              placeholder="dd/mm/aaaa"
+              excludeDates={unavailableDates}
+              minDate={formData.check_in ? parse(formData.check_in, 'yyyy-MM-dd', new Date()) : undefined}
+              maxDate={maxCheckOutDate}
             />
           </div>
 
           <div>
-            <label style={labelStyle}>Valor total (R$) *</label>
+            <label style={labelStyle}>Valor total (R$)</label>
             <input 
-              required type="number" step="0.01" name="total_amount"
-              value={formData.total_amount} onChange={handleChange}
-              style={inputStyle} placeholder="Ex: 1200.00"
+              type={isFocused.total_amount ? "number" : "text"} 
+              step={isFocused.total_amount ? "0.01" : undefined}
+              name="total_amount"
+              value={isFocused.total_amount ? formData.total_amount : formatCurrency(formData.total_amount)} 
+              onChange={handleChange}
+              onFocus={() => setIsFocused(prev => ({...prev, total_amount: true}))}
+              onBlur={() => setIsFocused(prev => ({...prev, total_amount: false}))}
+              style={inputStyle} placeholder="R$ 0,00"
             />
           </div>
 
           <div>
-            <label style={labelStyle}>Valor do sinal (R$) *</label>
+            <label style={labelStyle}>Valor do sinal (R$)</label>
             <input 
-              required type="number" step="0.01" name="deposit_amount"
-              value={formData.deposit_amount} onChange={handleChange}
-              style={inputStyle} placeholder="Ex: 600.00"
+              type={isFocused.deposit_amount ? "number" : "text"} 
+              step={isFocused.deposit_amount ? "0.01" : undefined}
+              name="deposit_amount"
+              value={isFocused.deposit_amount ? formData.deposit_amount : formatCurrency(formData.deposit_amount)} 
+              onChange={handleChange}
+              onFocus={() => setIsFocused(prev => ({...prev, deposit_amount: true}))}
+              onBlur={() => setIsFocused(prev => ({...prev, deposit_amount: false}))}
+              style={inputStyle} placeholder="R$ 0,00"
             />
           </div>
         </div>
@@ -253,6 +345,22 @@ export function NovaReservaClient({ properties }: { properties: any[] }) {
           </button>
         </div>
       </form>
+      
+      {/* Toast Notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999,
+          backgroundColor: toast.type === 'error' ? '#ef4444' : '#22c55e',
+          color: 'white', padding: '16px 24px', borderRadius: '8px',
+          boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+          display: 'flex', alignItems: 'center', gap: '12px',
+          maxWidth: '400px'
+        }}>
+          <span style={{ fontWeight: 600 }}>{toast.type === 'error' ? 'Erro:' : 'Sucesso!'}</span>
+          <span style={{ fontSize: '14px' }}>{toast.msg}</span>
+          <button onClick={() => setToast(null)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', marginLeft: 'auto', fontSize: '16px', fontWeight: 600 }}>✕</button>
+        </div>
+      )}
     </div>
   )
 }

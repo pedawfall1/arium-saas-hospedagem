@@ -54,6 +54,15 @@ export function BookingDetailClient({ booking, tenantName }: any) {
     setNewTotalAmount(booking.total_amount)
   }, [booking.check_in, booking.check_out, booking.total_amount])
 
+  const [isTotalFocused, setIsTotalFocused] = useState(false)
+
+  const formatCurrencyLocal = (val: string | number) => {
+    if (val === "" || val === null || val === undefined) return ""
+    const num = Number(val)
+    if (isNaN(num)) return String(val)
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num)
+  }
+
   const handleReschedule = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoadingDates(true)
@@ -278,11 +287,13 @@ export function BookingDetailClient({ booking, tenantName }: any) {
               <div>
                 <label style={labelStyle}>Novo Preço Total (R$)</label>
                 <input
-                  type="number"
-                  step="0.01"
+                  type={isTotalFocused ? "number" : "text"}
+                  step={isTotalFocused ? "0.01" : undefined}
                   required
-                  value={newTotalAmount}
+                  value={isTotalFocused ? newTotalAmount : formatCurrencyLocal(newTotalAmount)}
                   onChange={(e) => setNewTotalAmount(e.target.value)}
+                  onFocus={() => setIsTotalFocused(true)}
+                  onBlur={() => setIsTotalFocused(false)}
                   style={{
                     backgroundColor: 'var(--bg)',
                     border: '1px solid var(--border)',

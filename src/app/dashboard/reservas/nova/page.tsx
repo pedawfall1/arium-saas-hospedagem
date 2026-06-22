@@ -20,5 +20,18 @@ export default async function NovaReservaPage() {
     .select('id, name')
     .eq('tenant_id', tenant.id)
 
-  return <NovaReservaClient properties={properties || []} />
+  const propertyIds = properties?.map(p => p.id) || []
+
+  const [ { data: blockedDates }, { data: bookings } ] = await Promise.all([
+    supabase.from('blocked_dates').select('*').in('property_id', propertyIds),
+    supabase.from('bookings').select('check_in, check_out, property_id, status').in('property_id', propertyIds).in('status', ['confirmed', 'checked_in', 'completed'])
+  ])
+
+  return (
+    <NovaReservaClient 
+      properties={properties || []} 
+      blockedDates={blockedDates || []}
+      bookings={bookings || []}
+    />
+  )
 }

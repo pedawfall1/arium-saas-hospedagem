@@ -11,7 +11,6 @@ import { formatDate } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useConfirm } from "@/components/ConfirmModal"
-
 export function CalendarioClient({ properties, bookings, allBookings, blockedDates, holidays, tenantName }: any) {
   // Add CSS for mobile-only button
   useEffect(() => {
@@ -287,8 +286,9 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
               </div>
               <div>
                 <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Data</label>
-                <input 
-                  type="date" required
+                <input
+                  type="date"
+                  required
                   value={blockData.date}
                   onChange={e => setBlockData({...blockData, date: e.target.value})}
                   style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }}
