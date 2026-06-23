@@ -776,13 +776,13 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   background: var(--surface) !important;
   border: 1px solid var(--purple) !important;
   border-radius: 12px !important;
-  color: #fff !important;
+  color: var(--text) !important;
   font-family: inherit !important;
 }
 
 .react-datepicker__header {
   background: var(--surface) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-bottom: 1px solid var(--border) !important;
   padding-top: 8px !important;
   border-radius: 12px 12px 0 0 !important;
 }
@@ -790,7 +790,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .react-datepicker__current-month,
 .react-datepicker__day-name,
 .react-datepicker__day {
-  color: #fff !important;
+  color: var(--text) !important;
 }
 
 .react-datepicker__day:hover {
@@ -802,11 +802,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .react-datepicker__day--keyboard-selected {
   background: var(--purple) !important;
   border-radius: 8px !important;
-  color: #fff !important;
+  color: #fff !important; /* This should stay white regardless of theme because purple background is dark */
 }
 
 .react-datepicker__day--disabled {
-  color: rgba(255, 255, 255, 0.25) !important;
+  color: var(--muted) !important;
+  opacity: 0.5 !important;
 }
 
 .react-datepicker-popper {

@@ -51,7 +51,7 @@ export const AriumDatePicker = forwardRef<any, AriumDatePickerProps>(({
       />
       <Calendar 
         size={16} 
-        color="#ffffff" 
+        color="var(--text)" 
         style={{ 
           position: 'absolute', 
           right: '16px', 
