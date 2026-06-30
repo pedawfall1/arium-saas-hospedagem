@@ -98,10 +98,22 @@ export function BookingDetailClient({ booking, tenantName }: any) {
   }
 
   const handleDelete = async () => {
-    if (!(await confirm('Excluir Reserva', 'Tem certeza que deseja excluir esta reserva? Esta ação não pode ser desfeita.'))) return
+    if (!(await confirm('Mover para excluídas?', 'A reserva será cancelada e enviada para a aba de Excluídas, mantendo os dados de contato.'))) return
     setLoading(true)
-    await supabase.from('bookings').delete().eq('id', booking.id)
+    await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id)
     router.push('/dashboard/reservas')
+  }
+
+  const handleRestore = async () => {
+    if (!(await confirm('Restaurar Reserva', 'Deseja restaurar esta reserva?'))) return
+    setLoading(true)
+    const isPaid = booking.payment_status === 'deposit_paid' || booking.payment_status === 'fully_paid'
+    const newStatus = isPaid ? 'confirmed' : 'pending'
+    
+    await supabase.from('bookings').update({ status: newStatus }).eq('id', booking.id)
+    setStatus(newStatus)
+    setLoading(false)
+    router.refresh()
   }
 
   const saveNotes = async () => {
@@ -523,26 +535,48 @@ export function BookingDetailClient({ booking, tenantName }: any) {
         </button>
       </div>
 
-      {/* Delete button */}
-      <button
-        onClick={handleDelete}
-        disabled={loading}
-        style={{
-          width: '100%',
-          padding: '12px',
-          backgroundColor: 'rgba(239,68,68,0.1)',
-          border: '1px solid rgba(239,68,68,0.3)',
-          borderRadius: '10px',
-          color: '#f87171',
-          fontWeight: 600,
-          fontSize: '14px',
-          cursor: loading ? 'not-allowed' : 'pointer',
-          marginTop: '12px',
-          opacity: loading ? 0.6 : 1,
-        }}
-      >
-        {loading ? 'Excluindo...' : '🗑️ Excluir reserva'}
-      </button>
+      {/* Actions */}
+      {status !== 'cancelled' ? (
+        <button
+          onClick={handleDelete}
+          disabled={loading}
+          style={{
+            width: '100%',
+            padding: '12px',
+            backgroundColor: 'rgba(239,68,68,0.1)',
+            border: '1px solid rgba(239,68,68,0.3)',
+            borderRadius: '10px',
+            color: '#f87171',
+            fontWeight: 600,
+            fontSize: '14px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            marginTop: '12px',
+            opacity: loading ? 0.6 : 1,
+          }}
+        >
+          {loading ? 'Processando...' : '🗑️ Mover para Excluídas'}
+        </button>
+      ) : (
+        <button
+          onClick={handleRestore}
+          disabled={loading}
+          style={{
+            width: '100%',
+            padding: '12px',
+            backgroundColor: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: '10px',
+            color: 'var(--text)',
+            fontWeight: 600,
+            fontSize: '14px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            marginTop: '12px',
+            opacity: loading ? 0.6 : 1,
+          }}
+        >
+          {loading ? 'Restaurando...' : '↩️ Restaurar Reserva'}
+        </button>
+      )}
     </div>
   )
 }

@@ -14,6 +14,7 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
   const [searchGuest, setSearchGuest] = useState('')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
+  const [currentTab, setCurrentTab] = useState<'main' | 'deleted'>('main')
 
   // Stats
   const totalReservas = bookings.length
@@ -38,11 +39,20 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
     : "Nenhum"
 
   const filtered = bookings.filter(b => {
-    if (filterProp !== "all" && b.property_id !== filterProp) return false
-    if (filterStatus !== "all") {
-      if (filterStatus === "active" && (b.status === "cancelled" || b.status === "completed")) return false
-      if (filterStatus !== "active" && b.status !== filterStatus) return false
+    // Aba de Excluídas
+    if (currentTab === 'deleted') {
+      if (b.status !== 'cancelled') return false
+    } else {
+      // Aba Principal
+      if (b.status === 'cancelled') return false
+      if (filterStatus !== "all") {
+        if (filterStatus === "active" && b.status === "completed") return false
+        if (filterStatus !== "active" && b.status !== filterStatus) return false
+      }
     }
+
+    if (filterProp !== "all" && b.property_id !== filterProp) return false
+    
     // Search by guest name
     if (searchGuest && !b.guest_name?.toLowerCase().includes(searchGuest.toLowerCase())) return false
     // Date range filter — check_in within selected range
@@ -121,18 +131,19 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
             ))}
           </select>
 
-          <select 
-            value={filterStatus}
-            onChange={e => setFilterStatus(e.target.value)}
-            style={{ ...filterSelectStyle, flex: '1 1 140px', minWidth: '140px' }}
-          >
-            <option value="all">Todos os status</option>
-            <option value="active">Ativas (Pendentes, Confirmadas, Check-in)</option>
-            <option value="confirmed">Confirmadas</option>
-            <option value="checked_in">Em Check-in</option>
-            <option value="completed">Concluídas</option>
-            <option value="cancelled">Canceladas</option>
-          </select>
+          {currentTab === 'main' && (
+            <select 
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+              style={{ ...filterSelectStyle, flex: '1 1 140px', minWidth: '140px' }}
+            >
+              <option value="all">Todos os status</option>
+              <option value="active">Ativas (Pendentes, Confirmadas, Check-in)</option>
+              <option value="confirmed">Confirmadas</option>
+              <option value="checked_in">Em Check-in</option>
+              <option value="completed">Concluídas</option>
+            </select>
+          )}
         </div>
 
         {/* Row 2 — Search + Date range */}
@@ -214,11 +225,27 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
         </button>
       </div>
 
-      {filtered.length !== bookings.length && (
+      {filtered.length !== bookings.filter(b => currentTab === 'deleted' ? b.status === 'cancelled' : b.status !== 'cancelled').length && (
         <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '8px' }}>
-          Mostrando {filtered.length} de {bookings.length} reservas
+          Mostrando {filtered.length} de {bookings.filter(b => currentTab === 'deleted' ? b.status === 'cancelled' : b.status !== 'cancelled').length} reservas nesta aba
         </p>
       )}
+
+      {/* Tabs Principais / Excluídas */}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', borderBottom: '1px solid var(--border)' }}>
+        <button 
+          onClick={() => setCurrentTab('main')}
+          style={{ padding: '8px 16px', background: 'none', border: 'none', borderBottom: currentTab === 'main' ? '2px solid var(--purple)' : '2px solid transparent', color: currentTab === 'main' ? 'var(--text)' : 'var(--muted)', cursor: 'pointer', fontWeight: 500 }}
+        >
+          Ativas e Concluídas
+        </button>
+        <button 
+          onClick={() => setCurrentTab('deleted')}
+          style={{ padding: '8px 16px', background: 'none', border: 'none', borderBottom: currentTab === 'deleted' ? '2px solid var(--purple)' : '2px solid transparent', color: currentTab === 'deleted' ? 'var(--text)' : 'var(--muted)', cursor: 'pointer', fontWeight: 500 }}
+        >
+          Lixeira (Excluídas)
+        </button>
+      </div>
 
       <div style={{
         backgroundColor: 'var(--surface)',
