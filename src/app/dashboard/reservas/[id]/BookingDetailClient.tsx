@@ -63,6 +63,34 @@ export function BookingDetailClient({ booking, tenantName }: any) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num)
   }
 
+  const [isEditingValues, setIsEditingValues] = useState(false)
+  const [editTotal, setEditTotal] = useState(booking.total_amount || 0)
+  const [editDeposit, setEditDeposit] = useState(booking.deposit_amount || 0)
+  const [isEditTotalFocused, setIsEditTotalFocused] = useState(false)
+  const [isEditDepositFocused, setIsEditDepositFocused] = useState(false)
+
+  const handleUpdateValues = async () => {
+    setLoading(true)
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({
+          total_amount: Number(editTotal),
+          deposit_amount: Number(editDeposit)
+        })
+        .eq('id', booking.id)
+
+      if (error) throw error
+
+      setIsEditingValues(false)
+      router.refresh()
+    } catch (err: any) {
+      alert(err.message || "Erro ao atualizar valores.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleReschedule = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoadingDates(true)
@@ -391,27 +419,96 @@ export function BookingDetailClient({ booking, tenantName }: any) {
 
       {/* Values card */}
       <div style={cardStyle}>
-        <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>
-          Valores
-        </h2>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <span style={{ color: 'var(--muted)', fontSize: '14px' }}>Total</span>
-          <span style={{ color: 'var(--text)', fontSize: '15px', fontWeight: 600 }}>
-            {formatCurrency(booking.total_amount)}
-          </span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600 }}>
+            Valores
+          </h2>
+          {!isEditingValues ? (
+            <button
+              onClick={() => setIsEditingValues(true)}
+              style={{
+                background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px'
+              }}
+            >
+              Editar valores
+            </button>
+          ) : (
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => setIsEditingValues(false)} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '13px', cursor: 'pointer' }}>
+                Cancelar
+              </button>
+              <button onClick={handleUpdateValues} disabled={loading} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }}>
+                {loading ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          )}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <span style={{ color: 'var(--muted)', fontSize: '14px' }}>Sinal</span>
-          <span style={{ color: '#22c55e', fontSize: '15px', fontWeight: 600 }}>
-            {formatCurrency(booking.deposit_amount)}
-          </span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ color: 'var(--muted)', fontSize: '14px' }}>Restante no check-in</span>
-          <span style={{ color: 'var(--muted)', fontSize: '15px' }}>
-            {formatCurrency(booking.total_amount - booking.deposit_amount)}
-          </span>
-        </div>
+
+        {!isEditingValues ? (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <span style={{ color: 'var(--muted)', fontSize: '14px' }}>Total</span>
+              <span style={{ color: 'var(--text)', fontSize: '15px', fontWeight: 600 }}>
+                {formatCurrency(booking.total_amount)}
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <span style={{ color: 'var(--muted)', fontSize: '14px' }}>Sinal</span>
+              <span style={{ color: '#22c55e', fontSize: '15px', fontWeight: 600 }}>
+                {formatCurrency(booking.deposit_amount)}
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--muted)', fontSize: '14px' }}>Restante no check-in</span>
+              <span style={{ color: 'var(--muted)', fontSize: '15px' }}>
+                {formatCurrency(booking.total_amount - booking.deposit_amount)}
+              </span>
+            </div>
+          </>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div>
+              <label style={labelStyle}>Valor Total (R$)</label>
+              <input
+                type={isEditTotalFocused ? "number" : "text"}
+                value={isEditTotalFocused ? editTotal : formatCurrencyLocal(editTotal)}
+                onChange={e => setEditTotal(e.target.value)}
+                onFocus={() => setIsEditTotalFocused(true)}
+                onBlur={() => setIsEditTotalFocused(false)}
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  backgroundColor: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  color: 'var(--text)',
+                  fontSize: '14px',
+                }}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Valor do Sinal (R$)</label>
+              <input
+                type={isEditDepositFocused ? "number" : "text"}
+                value={isEditDepositFocused ? editDeposit : formatCurrencyLocal(editDeposit)}
+                onChange={e => setEditDeposit(e.target.value)}
+                onFocus={() => setIsEditDepositFocused(true)}
+                onBlur={() => setIsEditDepositFocused(false)}
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  backgroundColor: 'var(--bg)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  color: 'var(--text)',
+                  fontSize: '14px',
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Status card */}
