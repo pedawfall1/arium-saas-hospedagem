@@ -32,13 +32,16 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
 
   const [isFocused, setIsFocused] = useState({ total_amount: false, deposit_amount: false })
 
-  const unavailableDates = useMemo(() => {
-    const dates: Date[] = []
+  const { unavailableCheckIn, unavailableCheckOut } = useMemo(() => {
+    const datesIn: Date[] = []
+    const datesOut: Date[] = []
     const pid = formData.property_id
 
     blockedDates.forEach((b: any) => {
       if (b.property_id === pid) {
-        dates.push(parseISO(b.date))
+        const d = parseISO(b.date)
+        datesIn.push(d)
+        datesOut.push(d)
       }
     })
 
@@ -47,21 +50,29 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
         const start = parseISO(b.check_in)
         const end = parseISO(b.check_out)
         if (start < end) {
-          const interval = eachDayOfInterval({ start, end: addDays(end, -1) })
-          dates.push(...interval)
+          // Check-in blocked: from start up to end - 1
+          const intervalIn = eachDayOfInterval({ start, end: addDays(end, -1) })
+          datesIn.push(...intervalIn)
+          
+          // Check-out blocked: from start + 1 up to end
+          const intervalOut = eachDayOfInterval({ start: addDays(start, 1), end })
+          datesOut.push(...intervalOut)
         }
       }
     })
 
-    return dates.sort((a, b) => a.getTime() - b.getTime())
+    return {
+      unavailableCheckIn: datesIn.sort((a, b) => a.getTime() - b.getTime()),
+      unavailableCheckOut: datesOut.sort((a, b) => a.getTime() - b.getTime())
+    }
   }, [blockedDates, bookings, formData.property_id])
 
   const maxCheckOutDate = useMemo(() => {
     if (!formData.check_in) return undefined
     const checkInDate = startOfDay(parse(formData.check_in, 'yyyy-MM-dd', new Date()))
-    const nextBlocked = unavailableDates.find(d => isAfter(d, checkInDate))
+    const nextBlocked = unavailableCheckIn.find(d => isAfter(d, checkInDate))
     return nextBlocked || undefined
-  }, [formData.check_in, unavailableDates])
+  }, [formData.check_in, unavailableCheckIn])
 
   const formatCurrency = (val: string | number) => {
     if (val === "" || val === null || val === undefined) return ""
@@ -264,7 +275,7 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
               value={formData.check_in}
               onChange={(dateStr: string) => setFormData(prev => ({...prev, check_in: dateStr}))}
               placeholder="dd/mm/aaaa"
-              excludeDates={unavailableDates}
+              excludeDates={unavailableCheckIn}
             />
           </div>
 
@@ -275,7 +286,7 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
               value={formData.check_out}
               onChange={(dateStr: string) => setFormData(prev => ({...prev, check_out: dateStr}))}
               placeholder="dd/mm/aaaa"
-              excludeDates={unavailableDates}
+              excludeDates={unavailableCheckOut}
               minDate={formData.check_in ? parse(formData.check_in, 'yyyy-MM-dd', new Date()) : undefined}
               maxDate={maxCheckOutDate}
             />
