@@ -8,7 +8,7 @@ import { AriumDatePicker } from "@/components/ui/DatePicker"
 import { parseISO, eachDayOfInterval, addDays, isAfter, startOfDay, parse } from "date-fns"
 import { useMemo } from "react"
 
-export function NovaReservaClient({ properties, blockedDates = [], bookings = [] }: { properties: any[], blockedDates?: any[], bookings?: any[] }) {
+export function NovaReservaClient({ properties, blockedDates = [], bookings = [], holidays = [] }: { properties: any[], blockedDates?: any[], bookings?: any[], holidays?: any[] }) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -31,6 +31,27 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
   const [toast, setToast] = useState<{ msg: string, type: 'error' | 'success' } | null>(null)
 
   const [isFocused, setIsFocused] = useState({ total_amount: false, deposit_amount: false })
+
+  const [holidayWarningAccepted, setHolidayWarningAccepted] = useState(false)
+
+  const activeHolidayWarning = useMemo(() => {
+    if (!formData.check_in || !formData.check_out) return null
+    const checkIn = formData.check_in
+    const checkOut = formData.check_out
+    
+    const pid = formData.property_id
+    const propertyHolidays = holidays.filter((h: any) => h.property_id === pid)
+
+    for (const h of propertyHolidays) {
+      const touches = checkIn < h.date_to && checkOut > h.date_from
+      const coversFull = checkIn <= h.date_from && checkOut >= h.date_to
+      
+      if (touches && !coversFull) {
+        return h
+      }
+    }
+    return null
+  }, [formData.check_in, formData.check_out, formData.property_id, holidays])
 
   const { unavailableCheckIn, unavailableCheckOut } = useMemo(() => {
     const datesIn: Date[] = []
@@ -330,6 +351,23 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
           />
         </div>
 
+        {activeHolidayWarning && (
+          <div style={{ backgroundColor: '#fffbeb', border: '1px solid #f59e0b', borderRadius: '8px', padding: '16px', marginBottom: '24px' }}>
+            <p style={{ color: '#b45309', fontSize: '14px', margin: '0 0 12px 0', fontWeight: 500 }}>
+              Atenção: essas datas ficam dentro do feriado {activeHolidayWarning.name} ({activeHolidayWarning.date_from.split('-').reverse().join('/')} a {activeHolidayWarning.date_to.split('-').reverse().join('/')}). Normalmente é exigido pegar o período completo.
+            </p>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: '#b45309' }}>
+              <input 
+                type="checkbox" 
+                checked={holidayWarningAccepted} 
+                onChange={(e) => setHolidayWarningAccepted(e.target.checked)} 
+                style={{ width: '16px', height: '16px' }}
+              />
+              Criar mesmo assim
+            </label>
+          </div>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
           <button
             type="button"
@@ -344,12 +382,13 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
           </button>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (activeHolidayWarning !== null && !holidayWarningAccepted)}
             style={{
               backgroundColor: 'var(--purple)', border: 'none',
               color: 'white', borderRadius: '8px', padding: '12px 32px',
-              fontSize: '14px', fontWeight: 600, cursor: 'pointer',
-              opacity: loading ? 0.7 : 1
+              fontSize: '14px', fontWeight: 600, 
+              cursor: (loading || (activeHolidayWarning !== null && !holidayWarningAccepted)) ? 'not-allowed' : 'pointer',
+              opacity: (loading || (activeHolidayWarning !== null && !holidayWarningAccepted)) ? 0.7 : 1
             }}
           >
             {loading ? 'Salvando...' : 'Criar Reserva'}
