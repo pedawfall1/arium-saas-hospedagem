@@ -28,7 +28,7 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
     notes: ""
   })
 
-  const [toast, setToast] = useState<{msg: string, type: 'error' | 'success'} | null>(null)
+  const [toast, setToast] = useState<{ msg: string, type: 'error' | 'success' } | null>(null)
 
   const [isFocused, setIsFocused] = useState({ total_amount: false, deposit_amount: false })
 
@@ -41,7 +41,7 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
       if (b.property_id === pid) {
         const d = parseISO(b.date)
         datesIn.push(d)
-        datesOut.push(d)
+        datesOut.push(addDays(d, 1))
       }
     })
 
@@ -53,7 +53,7 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
           // Check-in blocked: from start up to end - 1
           const intervalIn = eachDayOfInterval({ start, end: addDays(end, -1) })
           datesIn.push(...intervalIn)
-          
+
           // Check-out blocked: from start + 1 up to end
           const intervalOut = eachDayOfInterval({ start: addDays(start, 1), end })
           datesOut.push(...intervalOut)
@@ -185,13 +185,13 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
 
   return (
     <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
-      <button 
+      <button
         onClick={() => router.push('/dashboard/reservas')}
-        style={{ 
-          display: 'flex', alignItems: 'center', gap: '8px', 
-          background: 'none', border: 'none', 
-          color: 'var(--muted)', cursor: 'pointer', 
-          fontSize: '14px', fontWeight: 500, marginBottom: '24px', padding: 0 
+        style={{
+          display: 'flex', alignItems: 'center', gap: '8px',
+          background: 'none', border: 'none',
+          color: 'var(--muted)', cursor: 'pointer',
+          fontSize: '14px', fontWeight: 500, marginBottom: '24px', padding: 0
         }}
       >
         <ArrowLeft size={16} /> Voltar para reservas
@@ -216,10 +216,10 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ 
-        backgroundColor: 'var(--surface)', 
-        border: '1px solid var(--border)', 
-        borderRadius: '16px', 
+      <form onSubmit={handleSubmit} style={{
+        backgroundColor: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: '16px',
         padding: '32px',
         boxSizing: 'border-box',
         width: '100%',
@@ -228,7 +228,7 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '24px' }}>
           <div>
             <label style={labelStyle}>Cabana *</label>
-            <select 
+            <select
               required
               name="property_id"
               value={formData.property_id}
@@ -243,7 +243,7 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
 
           <div>
             <label style={labelStyle}>Nome completo (Hóspede)</label>
-            <input 
+            <input
               type="text" name="guest_name"
               value={formData.guest_name} onChange={handleChange}
               style={inputStyle} placeholder="Ex: João da Silva"
@@ -252,7 +252,7 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
 
           <div>
             <label style={labelStyle}>WhatsApp</label>
-            <input 
+            <input
               type="text" name="guest_phone"
               value={formData.guest_phone} onChange={handleChange}
               style={inputStyle} placeholder="(XX) XXXXX-XXXX"
@@ -261,7 +261,7 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
 
           <div>
             <label style={labelStyle}>Número de hóspedes</label>
-            <input 
+            <input
               type="number" name="guests_count" min="1"
               value={formData.guests_count} onChange={handleChange}
               style={inputStyle}
@@ -270,10 +270,10 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
 
           <div style={{ width: '100%', boxSizing: 'border-box' }}>
             <label style={labelStyle}>Check-in *</label>
-            <AriumDatePicker 
+            <AriumDatePicker
               required
               value={formData.check_in}
-              onChange={(dateStr: string) => setFormData(prev => ({...prev, check_in: dateStr}))}
+              onChange={(dateStr: string) => setFormData(prev => ({ ...prev, check_in: dateStr }))}
               placeholder="dd/mm/aaaa"
               excludeDates={unavailableCheckIn}
             />
@@ -281,10 +281,10 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
 
           <div style={{ width: '100%', boxSizing: 'border-box' }}>
             <label style={labelStyle}>Check-out *</label>
-            <AriumDatePicker 
+            <AriumDatePicker
               required
               value={formData.check_out}
-              onChange={(dateStr: string) => setFormData(prev => ({...prev, check_out: dateStr}))}
+              onChange={(dateStr: string) => setFormData(prev => ({ ...prev, check_out: dateStr }))}
               placeholder="dd/mm/aaaa"
               excludeDates={unavailableCheckOut}
               minDate={formData.check_in ? parse(formData.check_in, 'yyyy-MM-dd', new Date()) : undefined}
@@ -294,28 +294,28 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
 
           <div>
             <label style={labelStyle}>Valor total (R$)</label>
-            <input 
-              type={isFocused.total_amount ? "number" : "text"} 
+            <input
+              type={isFocused.total_amount ? "number" : "text"}
               step={isFocused.total_amount ? "0.01" : undefined}
               name="total_amount"
-              value={isFocused.total_amount ? formData.total_amount : formatCurrency(formData.total_amount)} 
+              value={isFocused.total_amount ? formData.total_amount : formatCurrency(formData.total_amount)}
               onChange={handleChange}
-              onFocus={() => setIsFocused(prev => ({...prev, total_amount: true}))}
-              onBlur={() => setIsFocused(prev => ({...prev, total_amount: false}))}
+              onFocus={() => setIsFocused(prev => ({ ...prev, total_amount: true }))}
+              onBlur={() => setIsFocused(prev => ({ ...prev, total_amount: false }))}
               style={inputStyle} placeholder="R$ 0,00"
             />
           </div>
 
           <div>
             <label style={labelStyle}>Valor do sinal (R$)</label>
-            <input 
-              type={isFocused.deposit_amount ? "number" : "text"} 
+            <input
+              type={isFocused.deposit_amount ? "number" : "text"}
               step={isFocused.deposit_amount ? "0.01" : undefined}
               name="deposit_amount"
-              value={isFocused.deposit_amount ? formData.deposit_amount : formatCurrency(formData.deposit_amount)} 
+              value={isFocused.deposit_amount ? formData.deposit_amount : formatCurrency(formData.deposit_amount)}
               onChange={handleChange}
-              onFocus={() => setIsFocused(prev => ({...prev, deposit_amount: true}))}
-              onBlur={() => setIsFocused(prev => ({...prev, deposit_amount: false}))}
+              onFocus={() => setIsFocused(prev => ({ ...prev, deposit_amount: true }))}
+              onBlur={() => setIsFocused(prev => ({ ...prev, deposit_amount: false }))}
               style={inputStyle} placeholder="R$ 0,00"
             />
           </div>
@@ -323,7 +323,7 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
 
         <div style={{ marginBottom: '32px' }}>
           <label style={labelStyle}>Observações</label>
-          <textarea 
+          <textarea
             name="notes" rows={4}
             value={formData.notes} onChange={handleChange}
             style={{ ...inputStyle, resize: 'vertical' }} placeholder="Alguma observação importante sobre a reserva?"
@@ -331,23 +331,23 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={() => router.push('/dashboard/reservas')}
-            style={{ 
-              backgroundColor: 'transparent', border: '1px solid var(--border)', 
-              color: 'var(--text)', borderRadius: '8px', padding: '12px 24px', 
-              fontSize: '14px', fontWeight: 600, cursor: 'pointer' 
+            style={{
+              backgroundColor: 'transparent', border: '1px solid var(--border)',
+              color: 'var(--text)', borderRadius: '8px', padding: '12px 24px',
+              fontSize: '14px', fontWeight: 600, cursor: 'pointer'
             }}
           >
             Cancelar
           </button>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
-            style={{ 
-              backgroundColor: 'var(--purple)', border: 'none', 
-              color: 'white', borderRadius: '8px', padding: '12px 32px', 
+            style={{
+              backgroundColor: 'var(--purple)', border: 'none',
+              color: 'white', borderRadius: '8px', padding: '12px 32px',
               fontSize: '14px', fontWeight: 600, cursor: 'pointer',
               opacity: loading ? 0.7 : 1
             }}
@@ -356,7 +356,7 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
           </button>
         </div>
       </form>
-      
+
       {/* Toast Notification */}
       {toast && (
         <div style={{
