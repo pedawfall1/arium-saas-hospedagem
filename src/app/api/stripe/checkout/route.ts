@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-03-25.dahlia',
-})
+// Stripe SDK initialization removed to fix build error (it was unused)
 
 const PRICE_MAP: Record<string, string> = {
   essencial: process.env.STRIPE_PRICE_ESSENCIAL!,
