@@ -6,6 +6,11 @@ const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY
 
 export async function POST(req: NextRequest) {
   try {
+    const maskedKey = EVOLUTION_API_KEY 
+      ? `${EVOLUTION_API_KEY.slice(0, 4)}...${EVOLUTION_API_KEY.slice(-4)}` 
+      : 'UNDEFINED';
+    console.log('EVOLUTION_API_KEY mascarada:', maskedKey);
+
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
