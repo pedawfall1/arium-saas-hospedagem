@@ -4,13 +4,14 @@ import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { BookOpen, Calendar, Settings2, BarChart2, LayoutDashboard, Users, LogOut } from 'lucide-react'
+import { BookOpen, Calendar, Settings2, BarChart2, LayoutDashboard, Users, LogOut, MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const TENANT_LINKS = [
   { href: '/dashboard',             label: 'Dashboard',    Icon: LayoutDashboard },
   { href: '/dashboard/reservas',     label: 'Reservas',     Icon: BookOpen },
   { href: '/dashboard/calendario',   label: 'Calendário',   Icon: Calendar },
+  { href: '/dashboard/whatsapp',     label: 'WhatsApp',     Icon: MessageCircle },
   { href: '/dashboard/propriedades', label: 'Propriedades', Icon: Settings2 },
   { href: '/dashboard/relatorios',   label: 'Relatórios',   Icon: BarChart2 },
 ]
@@ -18,6 +19,7 @@ const TENANT_LINKS = [
 const ARIUM_LINKS = [
   { href: '/arium/dashboard', label: 'Dashboard', Icon: LayoutDashboard },
   { href: '/arium/clientes',  label: 'Clientes',  Icon: Users },
+  { href: '/arium/whatsapp',  label: 'WhatsApp',  Icon: MessageCircle },
 ]
 
 interface SidebarProps {
