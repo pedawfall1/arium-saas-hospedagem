@@ -85,6 +85,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
   const [holidays, setHolidays] = useState(initialHolidays)
   const [newHoliday, setNewHoliday] = useState({ property_id: '', name: '', date_from: '', date_to: '', price: '', min_nights: '1' })
   const [singleDate, setSingleDate] = useState("")
+  const [singleDateOut, setSingleDateOut] = useState("")
   const [savingHoliday, setSavingHoliday] = useState(false)
   const [editingHoliday, setEditingHoliday] = useState<string | null>(null)
   const [editHolidayData, setEditHolidayData] = useState<any>({})
@@ -202,16 +203,20 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
 
   const handleQuickAddHoliday = async (e: React.FormEvent, form: HTMLFormElement, propertyId: string) => {
     e.preventDefault()
+    if (!singleDate || !singleDateOut) return
+    if (singleDateOut <= singleDate) {
+      alert("A data de check-out deve ser posterior ao check-in.")
+      return
+    }
     setSavingHoliday(true)
     const priceInput = form.elements.namedItem('singlePrice') as HTMLInputElement;
-    const date = singleDate;
     const price = priceInput.value;
 
     const holidayObj = {
       property_id: propertyId,
       name: 'Diária Única (Exceção)',
-      date_from: date,
-      date_to: date,
+      date_from: singleDate,
+      date_to: singleDateOut,
       price: price ? Number(price) : null,
       min_nights: 1,
     }
@@ -220,6 +225,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
       setHolidays([...holidays, data[0]])
       form.reset()
       setSingleDate("")
+      setSingleDateOut("")
     }
     setSavingHoliday(false)
   }
@@ -572,8 +578,12 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                     <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '16px' }}>Use para liberar apenas 1 noite em um dia que normalmente exigiria mais (ex: Sexta-feira que sobrou de um feriado).</p>
                     <form onSubmit={(e) => handleQuickAddHoliday(e, e.target as HTMLFormElement, activeProp.id)} style={{ display: 'flex', gap: '16px', alignItems: 'end', flexWrap: 'wrap' }}>
                       <div style={{ flex: '1', minWidth: '180px' }}>
-                        <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Data a liberar</label>
+                        <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Data de check-in</label>
                         <input className="w-full max-w-full box-border" name="singleDate" type="date" required value={singleDate} onChange={e => setSingleDate(e.target.value)} style={{ colorScheme: 'light', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', minHeight: '48px', outline: 'none' }} />
+                      </div>
+                      <div style={{ flex: '1', minWidth: '180px' }}>
+                        <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Data de check-out</label>
+                        <input className="w-full max-w-full box-border" name="singleDateOut" type="date" required value={singleDateOut} onChange={e => setSingleDateOut(e.target.value)} style={{ colorScheme: 'light', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', minHeight: '48px', outline: 'none' }} />
                       </div>
                       <div style={{ flex: '1', minWidth: '180px' }}>
                         <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Preço/noite (R$)</label>
