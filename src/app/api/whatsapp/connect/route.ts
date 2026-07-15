@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           instanceName,
           qrcode: false,
+          integration: "WHATSAPP-BAILEYS"
         })
       })
 
