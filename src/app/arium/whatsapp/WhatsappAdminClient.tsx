@@ -48,14 +48,19 @@ export default function WhatsappAdminClient({ initialTenants }: { initialTenants
         const res = await fetch(`/api/whatsapp/status?tenantId=${selectedTenant.id}`)
         const data = await res.json()
         if (res.ok) {
-          setStatus(data.status)
-          // Update in local list
-          setTenants(prev => prev.map(t => t.id === selectedTenant.id ? { ...t, whatsapp_status: data.status, whatsapp_connected_at: data.status === 'connected' ? new Date().toISOString() : t.whatsapp_connected_at } : t))
           if (data.status === 'connected') {
+            setStatus('connected')
+            setTenants(prev => prev.map(t => t.id === selectedTenant.id ? { ...t, whatsapp_status: 'connected', whatsapp_connected_at: new Date().toISOString() } : t))
             stopPolling()
             setQrCode(null)
           } else if (data.status === 'disconnected') {
-            stopPolling()
+            setStatus(prev => {
+              if (prev === 'awaiting_scan') return prev // Não mata o QR code
+              stopPolling()
+              return 'disconnected'
+            })
+            // Update in local list without breaking QR
+            setTenants(prev => prev.map(t => t.id === selectedTenant.id ? { ...t, whatsapp_status: 'disconnected' } : t))
           }
         }
       } catch (err) {}

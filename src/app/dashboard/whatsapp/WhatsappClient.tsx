@@ -31,12 +31,16 @@ export default function WhatsappClient({ initialTenant }: { initialTenant: any }
         const res = await fetch('/api/whatsapp/status')
         const data = await res.json()
         if (res.ok) {
-          setStatus(data.status)
           if (data.status === 'connected') {
+            setStatus('connected')
             stopPolling()
             setQrCode(null)
           } else if (data.status === 'disconnected') {
-            stopPolling()
+            setStatus(prev => {
+              if (prev === 'awaiting_scan') return prev // Não mata o QR code
+              stopPolling()
+              return 'disconnected'
+            })
           }
         }
       } catch (err) {}
