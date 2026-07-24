@@ -31,6 +31,18 @@ const valueStyle = {
   fontWeight: 500,
 }
 
+const editInputStyle = {
+  backgroundColor: 'var(--bg)',
+  border: '1px solid var(--border)',
+  borderRadius: '8px',
+  padding: '10px 12px',
+  color: 'var(--text)',
+  fontSize: '14px',
+  width: '100%',
+  outline: 'none',
+  boxSizing: 'border-box' as const,
+}
+
 export function BookingDetailClient({ booking, tenantName }: any) {
   const router = useRouter()
   const supabase = createClient()
@@ -68,6 +80,53 @@ export function BookingDetailClient({ booking, tenantName }: any) {
   const [editDeposit, setEditDeposit] = useState(booking.deposit_amount || 0)
   const [isEditTotalFocused, setIsEditTotalFocused] = useState(false)
   const [isEditDepositFocused, setIsEditDepositFocused] = useState(false)
+
+  const formatCpf = (val: string) => {
+    const digits = String(val || '').replace(/\D/g, '').slice(0, 11)
+    return digits
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+  }
+
+  const [isEditingGuest, setIsEditingGuest] = useState(false)
+  const [editGuest, setEditGuest] = useState({
+    guest_name: booking.guest_name || "",
+    guest_phone: booking.guest_phone || "",
+    guest_cpf: booking.guest_cpf || "",
+    guest_email: booking.guest_email || "",
+    guest_city: booking.guest_city || "",
+    guests_count: booking.guests_count || 1,
+  })
+
+  const handleUpdateGuest = async () => {
+    setLoading(true)
+    try {
+      if (!editGuest.guest_name.trim()) {
+        throw new Error("O nome do hóspede é obrigatório.")
+      }
+      const { error } = await supabase
+        .from('bookings')
+        .update({
+          guest_name: editGuest.guest_name.trim(),
+          guest_phone: editGuest.guest_phone.trim(),
+          guest_cpf: editGuest.guest_cpf.trim() || null,
+          guest_email: editGuest.guest_email.trim() || null,
+          guest_city: editGuest.guest_city.trim() || null,
+          guests_count: Math.max(1, Number(editGuest.guests_count) || 1),
+        })
+        .eq('id', booking.id)
+
+      if (error) throw error
+
+      setIsEditingGuest(false)
+      router.refresh()
+    } catch (err: any) {
+      alert(err.message || "Erro ao atualizar dados do hóspede.")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleUpdateValues = async () => {
     setLoading(true)
@@ -224,34 +283,136 @@ export function BookingDetailClient({ booking, tenantName }: any) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px', marginBottom: '16px' }}>
         {/* Left card - Guest details */}
         <div style={cardStyle}>
-          <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>
-            Detalhes do Hóspede
-          </h2>
-          <div style={{ marginBottom: '12px' }}>
-            <p style={labelStyle}>Nome</p>
-            <p style={valueStyle}>{booking.guest_name}</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, margin: 0 }}>
+              Detalhes do Hóspede
+            </h2>
+            {!isEditingGuest ? (
+              <button
+                onClick={() => {
+                  setEditGuest({
+                    guest_name: booking.guest_name || "",
+                    guest_phone: booking.guest_phone || "",
+                    guest_cpf: booking.guest_cpf || "",
+                    guest_email: booking.guest_email || "",
+                    guest_city: booking.guest_city || "",
+                    guests_count: booking.guests_count || 1,
+                  })
+                  setIsEditingGuest(true)
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--purple)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+              >
+                ✏️ Editar
+              </button>
+            ) : (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => setIsEditingGuest(false)} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '13px', cursor: 'pointer' }}>
+                  Cancelar
+                </button>
+                <button onClick={handleUpdateGuest} disabled={loading} style={{ background: 'none', border: 'none', color: 'var(--purple)', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }}>
+                  {loading ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            )}
           </div>
-          <div style={{ marginBottom: '12px' }}>
-            <p style={labelStyle}>Telefone</p>
-            <a
-              href="#"
-              onClick={handleWhatsApp}
-              style={{ color: 'var(--purple)', fontSize: '15px', fontWeight: 500, textDecoration: 'none' }}
-            >
-              {booking.guest_phone}
-            </a>
-          </div>
-          {booking.guest_email && (
-            <div style={booking.guest_city ? { marginBottom: '12px' } : {}}>
-              <p style={labelStyle}>E-mail</p>
-              <p style={valueStyle}>{booking.guest_email}</p>
+
+          {isEditingGuest ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={labelStyle}>Nome</label>
+                <input
+                  type="text"
+                  value={editGuest.guest_name}
+                  onChange={(e) => setEditGuest({ ...editGuest, guest_name: e.target.value })}
+                  style={editInputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Telefone / WhatsApp</label>
+                <input
+                  type="text"
+                  value={editGuest.guest_phone}
+                  onChange={(e) => setEditGuest({ ...editGuest, guest_phone: e.target.value })}
+                  style={editInputStyle}
+                  placeholder="(XX) XXXXX-XXXX"
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>CPF</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={editGuest.guest_cpf}
+                  onChange={(e) => setEditGuest({ ...editGuest, guest_cpf: formatCpf(e.target.value) })}
+                  style={editInputStyle}
+                  placeholder="000.000.000-00"
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>E-mail</label>
+                <input
+                  type="email"
+                  value={editGuest.guest_email}
+                  onChange={(e) => setEditGuest({ ...editGuest, guest_email: e.target.value })}
+                  style={editInputStyle}
+                  placeholder="email@exemplo.com"
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Cidade</label>
+                <input
+                  type="text"
+                  value={editGuest.guest_city}
+                  onChange={(e) => setEditGuest({ ...editGuest, guest_city: e.target.value })}
+                  style={editInputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Número de hóspedes</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={editGuest.guests_count}
+                  onChange={(e) => setEditGuest({ ...editGuest, guests_count: Number(e.target.value) })}
+                  style={editInputStyle}
+                />
+              </div>
             </div>
-          )}
-          {booking.guest_city && (
-            <div>
-              <p style={labelStyle}>Cidade</p>
-              <p style={valueStyle}>{booking.guest_city}</p>
-            </div>
+          ) : (
+            <>
+              <div style={{ marginBottom: '12px' }}>
+                <p style={labelStyle}>Nome</p>
+                <p style={valueStyle}>{booking.guest_name}</p>
+              </div>
+              <div style={{ marginBottom: '12px' }}>
+                <p style={labelStyle}>Telefone</p>
+                <a
+                  href="#"
+                  onClick={handleWhatsApp}
+                  style={{ color: 'var(--purple)', fontSize: '15px', fontWeight: 500, textDecoration: 'none' }}
+                >
+                  {booking.guest_phone}
+                </a>
+              </div>
+              {booking.guest_cpf && (
+                <div style={{ marginBottom: '12px' }}>
+                  <p style={labelStyle}>CPF</p>
+                  <p style={valueStyle}>{booking.guest_cpf}</p>
+                </div>
+              )}
+              {booking.guest_email && (
+                <div style={{ marginBottom: '12px' }}>
+                  <p style={labelStyle}>E-mail</p>
+                  <p style={valueStyle}>{booking.guest_email}</p>
+                </div>
+              )}
+              {booking.guest_city && (
+                <div>
+                  <p style={labelStyle}>Cidade</p>
+                  <p style={valueStyle}>{booking.guest_city}</p>
+                </div>
+              )}
+            </>
           )}
         </div>
 

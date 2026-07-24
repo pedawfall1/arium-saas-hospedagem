@@ -47,6 +47,7 @@ export type Booking = {
   guest_name: string
   guest_phone: string
   guest_email: string | null
+  guest_cpf: string | null
   check_in: string
   check_out: string
   guests_count: number

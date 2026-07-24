@@ -20,6 +20,7 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
     property_id: properties[0]?.id || "",
     guest_name: "",
     guest_phone: "",
+    guest_cpf: "",
     check_in: "",
     check_out: "",
     guests_count: 2,
@@ -102,8 +103,17 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num)
   }
 
+  const formatCpf = (val: string) => {
+    const digits = val.replace(/\D/g, '').slice(0, 11)
+    return digits
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+  }
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value })
+    const value = e.target.name === 'guest_cpf' ? formatCpf(e.target.value) : e.target.value
+    setFormData({ ...formData, [e.target.name]: value })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -131,6 +141,7 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
         property_id: formData.property_id,
         guest_name: guestName,
         guest_phone: guestPhone,
+        guest_cpf: formData.guest_cpf || null,
         check_in: formData.check_in,
         check_out: formData.check_out,
         guests_count: guests,
@@ -277,6 +288,15 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
               type="text" name="guest_phone"
               value={formData.guest_phone} onChange={handleChange}
               style={inputStyle} placeholder="(XX) XXXXX-XXXX"
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>CPF</label>
+            <input
+              type="text" name="guest_cpf" inputMode="numeric"
+              value={formData.guest_cpf} onChange={handleChange}
+              style={inputStyle} placeholder="000.000.000-00"
             />
           </div>
 
