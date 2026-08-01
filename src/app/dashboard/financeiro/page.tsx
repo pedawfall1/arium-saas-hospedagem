@@ -82,6 +82,13 @@ export default async function FinanceiroPage() {
     supabase.from('extra_revenues').select('*').eq('tenant_id', tenant.id).order('date', { ascending: false }).limit(500),
   ])
 
+  const { data: payments } = await supabase
+    .from('booking_payments')
+    .select('*')
+    .eq('tenant_id', tenant.id)
+    .order('date', { ascending: false })
+    .limit(500)
+
   // Reservas para vincular as receitas extras (extras sempre nascem de uma reserva)
   let bookings: any[] = []
   if (propertyIds.length > 0) {
@@ -104,6 +111,7 @@ export default async function FinanceiroPage() {
       recurring={recurring || []}
       extras={extras || []}
       bookings={bookings}
+      payments={payments || []}
     />
   )
 }

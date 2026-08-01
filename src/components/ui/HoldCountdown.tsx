@@ -36,6 +36,38 @@ const EXPIRED = { fg: "var(--neutral-soft)", bg: "rgba(148,163,184,0.12)", bd: "
 const URGENT = { fg: "var(--warning)", bg: "rgba(245,158,11,0.12)", bd: "rgba(245,158,11,0.35)" }
 const NORMAL = { fg: "var(--info-strong)", bg: "rgba(59,130,246,0.12)", bd: "rgba(59,130,246,0.30)" }
 
+/** Selo de cortesia ou de pagamento em aberto, para a listagem. */
+export function BookingFlags({ booking }: { booking: { is_courtesy?: boolean | null, awaiting_settlement?: boolean | null } }) {
+  if (!booking.is_courtesy && !booking.awaiting_settlement) return null
+
+  const base = {
+    display: 'inline-block', marginTop: '4px', marginRight: '4px',
+    padding: '2px 8px', borderRadius: '6px',
+    fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap' as const,
+  }
+
+  return (
+    <>
+      {booking.is_courtesy && (
+        <span title="Diária cedida (influencer/permuta) — não entra no faturamento" style={{
+          ...base, backgroundColor: 'rgba(168,85,247,0.12)',
+          border: '1px solid rgba(168,85,247,0.3)', color: 'var(--violet-mid)',
+        }}>
+          🎁 Cortesia
+        </span>
+      )}
+      {booking.awaiting_settlement && (
+        <span title="A estadia aconteceu mas o pagamento ainda não entrou" style={{
+          ...base, backgroundColor: 'rgba(245,158,11,0.12)',
+          border: '1px solid rgba(245,158,11,0.35)', color: 'var(--warning)',
+        }}>
+          ⏳ Não recebido
+        </span>
+      )}
+    </>
+  )
+}
+
 /** Selo compacto para listagem/tabela. */
 export function HoldCountdown({ booking }: { booking: HoldBooking }) {
   const now = useMinuteTick()

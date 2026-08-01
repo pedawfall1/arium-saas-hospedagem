@@ -29,16 +29,17 @@ export default async function RelatoriosPage() {
   if (propertyIds.length > 0) {
     const { data } = await supabase
       .from('bookings')
-      .select('id, property_id, check_in, check_out, total_amount, deposit_amount, status, payment_status')
+      .select('id, property_id, check_in, check_out, total_amount, deposit_amount, status, payment_status, is_courtesy, awaiting_settlement')
       .in('property_id', propertyIds)
 
     bookings = data || []
   }
 
-  const [{ data: expenses }, { data: extras }, { data: categories }] = await Promise.all([
+  const [{ data: expenses }, { data: extras }, { data: categories }, { data: payments }] = await Promise.all([
     supabase.from('expenses').select('id, property_id, category_id, amount, date, description').eq('tenant_id', tenant.id),
     supabase.from('extra_revenues').select('id, booking_id, property_id, amount, date, description').eq('tenant_id', tenant.id),
     supabase.from('expense_categories').select('id, label').eq('tenant_id', tenant.id).order('position'),
+    supabase.from('booking_payments').select('id, booking_id, amount, date').eq('tenant_id', tenant.id),
   ])
 
   return (
@@ -48,6 +49,7 @@ export default async function RelatoriosPage() {
       expenses={expenses || []}
       extras={extras || []}
       categories={categories || []}
+      payments={payments || []}
     />
   )
 }

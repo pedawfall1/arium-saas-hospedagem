@@ -46,7 +46,7 @@ const editInputStyle = {
   boxSizing: 'border-box' as const,
 }
 
-export function BookingDetailClient({ booking, tenantName, userEmail, whatsappConnected }: any) {
+export function BookingDetailClient({ booking, tenantName, userEmail, whatsappConnected, tenantId, payments = [] }: any) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -245,6 +245,70 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
     } finally {
       setLoading(false)
     }
+  }
+
+  // --- Recebimentos, cortesia e "ainda não recebido" ---
+  const [isCourtesy, setIsCourtesy] = useState(!!booking.is_courtesy)
+  const [awaiting, setAwaiting] = useState(!!booking.awaiting_settlement)
+  const [novoPg, setNovoPg] = useState({ amount: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', note: '' })
+  const [pgFocused, setPgFocused] = useState(false)
+
+  const totalRecebido = payments.reduce((s: number, p: any) => s + Number(p.amount || 0), 0)
+  const saldoAberto = Math.max(0, Number(booking.total_amount || 0) - totalRecebido)
+
+  const marcarFlag = async (campo: 'is_courtesy' | 'awaiting_settlement', valor: boolean) => {
+    setLoading(true)
+    setActionMsg(null)
+    const anterior = campo === 'is_courtesy' ? isCourtesy : awaiting
+    if (campo === 'is_courtesy') setIsCourtesy(valor)
+    else setAwaiting(valor)
+
+    const { error } = await supabase.from('bookings').update({ [campo]: valor }).eq('id', booking.id)
+    setLoading(false)
+    if (error) {
+      // Reverte o botão se o banco recusou, para a tela não mentir.
+      if (campo === 'is_courtesy') setIsCourtesy(anterior)
+      else setAwaiting(anterior)
+      setActionMsg({ text: error.message, type: 'err' })
+      return
+    }
+    router.refresh()
+  }
+
+  const adicionarRecebimento = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!(Number(novoPg.amount) > 0)) {
+      setActionMsg({ text: 'Informe um valor maior que zero.', type: 'err' })
+      return
+    }
+    setLoading(true)
+    const { error } = await supabase.from('booking_payments').insert([{
+      tenant_id: tenantId,
+      booking_id: booking.id,
+      amount: Number(novoPg.amount),
+      date: novoPg.date,
+      method: novoPg.method || null,
+      note: novoPg.note.trim() || null,
+    }])
+    setLoading(false)
+    if (error) { setActionMsg({ text: error.message, type: 'err' }); return }
+
+    // Registrou dinheiro entrando: a reserva deixa de estar "não recebida".
+    if (awaiting) {
+      await supabase.from('bookings').update({ awaiting_settlement: false }).eq('id', booking.id)
+      setAwaiting(false)
+    }
+    setNovoPg({ amount: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', note: '' })
+    setActionMsg({ text: 'Recebimento registrado.', type: 'ok' })
+    router.refresh()
+  }
+
+  const apagarRecebimento = async (p: any) => {
+    if (!(await confirm('Apagar recebimento?', `${formatCurrency(Number(p.amount))} de ${formatDate(p.date)}.`))) return
+    setLoading(true)
+    await supabase.from('booking_payments').delete().eq('id', p.id)
+    setLoading(false)
+    router.refresh()
   }
 
   const handleReschedule = async (e: React.FormEvent) => {
@@ -868,6 +932,126 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
               />
             </div>
           </div>
+        )}
+      </div>
+
+      {/* Recebimentos */}
+      <div style={cardStyle}>
+        <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '6px' }}>
+          Recebimentos
+        </h2>
+        <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '18px', lineHeight: 1.5 }}>
+          Registre aqui o dinheiro que realmente entrou. Enquanto houver lançamento, o relatório usa
+          estes valores em vez de deduzir pela data.
+        </p>
+
+        {/* Marcadores */}
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}>
+          <button
+            onClick={() => marcarFlag('is_courtesy', !isCourtesy)}
+            disabled={loading}
+            title="Diária cedida para influencer ou permuta — não entra no faturamento nem no ticket médio"
+            style={{
+              padding: '7px 14px', borderRadius: '999px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+              border: `1px solid ${isCourtesy ? 'rgba(168,85,247,0.4)' : 'var(--border)'}`,
+              backgroundColor: isCourtesy ? 'rgba(168,85,247,0.12)' : 'transparent',
+              color: isCourtesy ? 'var(--violet-mid)' : 'var(--muted)',
+            }}
+          >
+            🎁 Cortesia / permuta {isCourtesy ? '✓' : ''}
+          </button>
+          <button
+            onClick={() => marcarFlag('awaiting_settlement', !awaiting)}
+            disabled={loading || isCourtesy}
+            title="A estadia aconteceu mas o dinheiro ainda não entrou — segura o valor em 'A receber'"
+            style={{
+              padding: '7px 14px', borderRadius: '999px', fontSize: '13px', fontWeight: 600,
+              cursor: isCourtesy ? 'not-allowed' : 'pointer',
+              border: `1px solid ${awaiting ? 'rgba(245,158,11,0.4)' : 'var(--border)'}`,
+              backgroundColor: awaiting ? 'rgba(245,158,11,0.12)' : 'transparent',
+              color: awaiting ? 'var(--warning)' : 'var(--muted)',
+              opacity: isCourtesy ? 0.4 : 1,
+            }}
+          >
+            ⏳ Ainda não recebi {awaiting ? '✓' : ''}
+          </button>
+        </div>
+
+        {isCourtesy ? (
+          <p style={{ color: 'var(--violet-mid)', fontSize: '13px', lineHeight: 1.6, margin: 0 }}>
+            Esta é uma diária cedida. Ela não entra no faturamento nem puxa o ticket médio para baixo,
+            e aparece no relatório como cortesia.
+          </p>
+        ) : (
+          <>
+            {/* Saldo */}
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+              <div style={{ flex: '1 1 150px', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px' }}>
+                <p style={{ color: 'var(--muted)', fontSize: '12px', marginBottom: '4px' }}>Já recebido</p>
+                <p style={{ color: 'var(--success)', fontSize: '18px', fontWeight: 700 }}>{formatCurrency(totalRecebido)}</p>
+              </div>
+              <div style={{ flex: '1 1 150px', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px' }}>
+                <p style={{ color: 'var(--muted)', fontSize: '12px', marginBottom: '4px' }}>Em aberto</p>
+                <p style={{ color: saldoAberto > 0 ? 'var(--warning)' : 'var(--muted)', fontSize: '18px', fontWeight: 700 }}>
+                  {formatCurrency(saldoAberto)}
+                </p>
+              </div>
+            </div>
+
+            {/* Lista */}
+            {payments.length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                {payments.map((p: any) => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                    <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: '15px', minWidth: '100px' }}>
+                      {formatCurrency(Number(p.amount))}
+                    </span>
+                    <span style={{ color: 'var(--muted)', fontSize: '13px' }}>{formatDate(p.date)}</span>
+                    {p.method && <span style={{ color: 'var(--muted)', fontSize: '12px', border: '1px solid var(--border)', borderRadius: '4px', padding: '1px 7px' }}>{p.method}</span>}
+                    {p.note && <span style={{ color: 'var(--muted)', fontSize: '12px', flex: 1 }}>{p.note}</span>}
+                    <button onClick={() => apagarRecebimento(p)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '13px' }}>
+                      remover
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Novo recebimento */}
+            <form onSubmit={adicionarRecebimento} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', alignItems: 'end' }}>
+              <div>
+                <label style={labelStyle}>Valor</label>
+                <input
+                  type={pgFocused ? 'number' : 'text'} step="0.01" min="0"
+                  value={pgFocused ? novoPg.amount : (novoPg.amount === '' ? '' : formatCurrency(Number(novoPg.amount)))}
+                  onChange={e => setNovoPg({ ...novoPg, amount: e.target.value })}
+                  onFocus={() => setPgFocused(true)} onBlur={() => setPgFocused(false)}
+                  placeholder="R$ 0,00" style={editInputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Data</label>
+                <input type="date" value={novoPg.date} onChange={e => setNovoPg({ ...novoPg, date: e.target.value })} style={editInputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Forma</label>
+                <select value={novoPg.method} onChange={e => setNovoPg({ ...novoPg, method: e.target.value })} style={editInputStyle}>
+                  {['Pix', 'Dinheiro', 'Cartão', 'Transferência', 'Mercado Pago', 'Outro'].map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Observação</label>
+                <input type="text" value={novoPg.note} onChange={e => setNovoPg({ ...novoPg, note: e.target.value })} placeholder="opcional" style={editInputStyle} />
+              </div>
+              <button type="submit" disabled={loading} style={{
+                padding: '10px 16px', backgroundColor: 'var(--purple)', border: 'none', borderRadius: '8px',
+                color: '#fff', fontWeight: 600, fontSize: '14px', cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.7 : 1,
+              }}>
+                + Registrar
+              </button>
+            </form>
+          </>
         )}
       </div>
 

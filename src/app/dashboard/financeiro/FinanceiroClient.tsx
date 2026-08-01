@@ -104,12 +104,12 @@ function mesAtual() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
-export function FinanceiroClient({ tenantId, properties, categories, expenses, recurring, extras, bookings }: any) {
+export function FinanceiroClient({ tenantId, properties, categories, expenses, recurring, extras, bookings, payments = [] }: any) {
   const router = useRouter()
   const supabase = createClient()
   const { ConfirmModal, confirm } = useConfirm()
 
-  const [tab, setTab] = useState<'gastos' | 'extras' | 'fixas'>('gastos')
+  const [tab, setTab] = useState<'gastos' | 'extras' | 'recebimentos' | 'fixas'>('gastos')
   const [mes, setMes] = useState(mesAtual())
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState('')
@@ -123,6 +123,9 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
 
   const gastosMes = useMemo(() => expenses.filter((e: any) => doMes(e.date)), [expenses, mes])
   const extrasMes = useMemo(() => extras.filter((e: any) => doMes(e.date)), [extras, mes])
+
+  const recebimentosMes = useMemo(() => payments.filter((p: any) => doMes(p.date)), [payments, mes])
+  const totalRecebido = recebimentosMes.reduce((s: number, p: any) => s + Number(p.amount || 0), 0)
 
   const totalGastos = gastosMes.reduce((s: number, e: any) => s + Number(e.amount || 0), 0)
   const totalExtras = extrasMes.reduce((s: number, e: any) => s + Number(e.amount || 0), 0)
@@ -171,24 +174,28 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
   }
 
   // ---------- form de RECEITA EXTRA ----------
-  const extraVazio = { id: null as string | null, booking_id: '', description: '', amount: '', date: new Date().toISOString().slice(0, 10) }
+  // booking_id vazio = venda avulsa (visitante que não está hospedado).
+  const extraVazio = {
+    id: null as string | null, booking_id: '', property_id: GERAL,
+    description: '', amount: '', date: new Date().toISOString().slice(0, 10),
+  }
   const [extra, setExtra] = useState(extraVazio)
 
   const salvarExtra = async (e: React.FormEvent) => {
     e.preventDefault()
     setErro('')
-    if (!extra.booking_id) return setErro('Escolha a reserva do hóspede que consumiu.')
     if (!extra.description.trim()) return setErro('Descreva a receita (ex: Fondue de chocolate).')
     if (!(Number(extra.amount) > 0)) return setErro('Informe um valor maior que zero.')
 
-    const reserva = bookings.find((b: any) => b.id === extra.booking_id)
-    if (!reserva) return setErro('Reserva não encontrada.')
+    const reserva = extra.booking_id ? bookings.find((b: any) => b.id === extra.booking_id) : null
+    if (extra.booking_id && !reserva) return setErro('Reserva não encontrada.')
 
     setSaving(true)
     const payload = {
       tenant_id: tenantId,
-      booking_id: extra.booking_id,
-      property_id: reserva.property_id,
+      booking_id: extra.booking_id || null,
+      // Com reserva, a cabana vem dela; sem reserva, a dona escolhe (ou "Geral").
+      property_id: reserva ? reserva.property_id : (extra.property_id === GERAL ? null : extra.property_id),
       description: extra.description.trim(),
       amount: Number(extra.amount),
       date: extra.date,
@@ -313,6 +320,7 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
         {tabBtn('gastos', `Gastos (${gastosMes.length})`)}
         {tabBtn('extras', `Receitas extras (${extrasMes.length})`)}
+        {tabBtn('recebimentos', `Recebimentos (${recebimentosMes.length})`)}
         {tabBtn('fixas', `Despesas fixas (${recurring.length})`)}
       </div>
 
@@ -433,7 +441,7 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={label}>Reserva do hóspede</label>
                 <select value={extra.booking_id} onChange={e => setExtra({ ...extra, booking_id: e.target.value })} style={input}>
-                  <option value="">Selecione a reserva...</option>
+                  <option value="">Venda avulsa (sem reserva)</option>
                   {bookings.map((b: any) => (
                     <option key={b.id} value={b.id}>
                       {b.guest_name} — {formatDate(b.check_in)} ({properties.find((p: any) => p.id === b.property_id)?.name})
@@ -441,6 +449,15 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
                   ))}
                 </select>
               </div>
+              {!extra.booking_id && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label style={label}>Cabana (venda avulsa)</label>
+                  <select value={extra.property_id} onChange={e => setExtra({ ...extra, property_id: e.target.value })} style={input}>
+                    <option value={GERAL}>Nenhuma cabana específica</option>
+                    {properties.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+              )}
               <div>
                 <label style={label}>Data da venda</label>
                 <input type="date" value={extra.date} onChange={e => setExtra({ ...extra, date: e.target.value })} style={input} />
@@ -476,13 +493,15 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
                       <tr key={e.id}>
                         <td style={{ ...td, whiteSpace: 'nowrap' }}>{formatDate(e.date)}</td>
                         <td style={td}>{e.description}</td>
-                        <td style={{ ...td, color: 'var(--muted)' }}>{b?.guest_name ?? '—'}</td>
+                        <td style={{ ...td, color: 'var(--muted)' }}>
+                          {b?.guest_name ?? <span style={{ fontStyle: 'italic' }}>venda avulsa</span>}
+                        </td>
                         <td style={td}>{nomeCabana(e.property_id)}</td>
                         <td style={{ ...td, color: 'var(--success)', fontWeight: 600, whiteSpace: 'nowrap' }}>{formatCurrency(Number(e.amount))}</td>
                         <td style={{ ...td, whiteSpace: 'nowrap' }}>
                           <button onClick={() => setExtra({
-                            id: e.id, booking_id: e.booking_id, description: e.description,
-                            amount: String(e.amount), date: e.date,
+                            id: e.id, booking_id: e.booking_id ?? '', property_id: e.property_id ?? GERAL,
+                            description: e.description, amount: String(e.amount), date: e.date,
                           })} title="Editar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: '4px' }}>
                             <Pencil size={15} />
                           </button>
@@ -510,6 +529,58 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
             </div>
           </div>
         </>
+      )}
+
+      {/* ================= RECEBIMENTOS ================= */}
+      {tab === 'recebimentos' && (
+        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
+            <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600 }}>Dinheiro que entrou no mês</h2>
+            <p style={{ color: 'var(--muted)', fontSize: '13px', marginTop: '4px', lineHeight: 1.5 }}>
+              Os recebimentos são lançados dentro de cada reserva, no card <strong>Recebimentos</strong>.
+              Aqui é só a visão consolidada do mês.
+            </p>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
+              <thead><tr>
+                {['Data', 'Hóspede', 'Cabana', 'Forma', 'Observação', 'Valor'].map((c, i) => <th key={i} style={th}>{c}</th>)}
+              </tr></thead>
+              <tbody>
+                {recebimentosMes.map((p: any) => {
+                  const b = bookings.find((x: any) => x.id === p.booking_id)
+                  return (
+                    <tr key={p.id}>
+                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{formatDate(p.date)}</td>
+                      <td style={td}>
+                        {b ? (
+                          <a href={`/dashboard/reservas/${p.booking_id}`} style={{ color: 'var(--purple)', textDecoration: 'none', fontWeight: 500 }}>
+                            {b.guest_name}
+                          </a>
+                        ) : '—'}
+                      </td>
+                      <td style={{ ...td, color: 'var(--muted)' }}>{b ? nomeCabana(b.property_id) : '—'}</td>
+                      <td style={{ ...td, color: 'var(--muted)' }}>{p.method ?? '—'}</td>
+                      <td style={{ ...td, color: 'var(--muted)' }}>{p.note ?? '—'}</td>
+                      <td style={{ ...td, color: 'var(--success)', fontWeight: 600, whiteSpace: 'nowrap' }}>{formatCurrency(Number(p.amount))}</td>
+                    </tr>
+                  )
+                })}
+                {recebimentosMes.length === 0 && (
+                  <tr><td colSpan={6} style={{ ...td, textAlign: 'center', padding: '40px', color: 'var(--muted)', borderBottom: 'none' }}>
+                    Nenhum recebimento lançado neste mês.
+                  </td></tr>
+                )}
+              </tbody>
+              {recebimentosMes.length > 0 && (
+                <tfoot><tr>
+                  <td colSpan={5} style={{ ...td, fontWeight: 600, borderBottom: 'none' }}>Total recebido no mês</td>
+                  <td style={{ ...td, color: 'var(--success)', fontWeight: 800, borderBottom: 'none', whiteSpace: 'nowrap' }}>{formatCurrency(totalRecebido)}</td>
+                </tr></tfoot>
+              )}
+            </table>
+          </div>
+        </div>
       )}
 
       {/* ================= DESPESAS FIXAS ================= */}

@@ -22,6 +22,18 @@ export type BookingLike = {
   deposit_amount: number | string | null
   status: string
   payment_status: string
+  /** Diária cedida (influencer/permuta): valor zero é intencional. */
+  is_courtesy?: boolean | null
+  /** A estadia aconteceu mas o dinheiro ainda não entrou. */
+  awaiting_settlement?: boolean | null
+}
+
+/** Dinheiro que realmente entrou, lançado pela dona. */
+export type PaymentLike = {
+  id: string
+  booking_id: string
+  amount: number | string | null
+  date: string
 }
 
 export type ExpenseLike = {
@@ -35,8 +47,10 @@ export type ExpenseLike = {
 
 export type ExtraRevenueLike = {
   id: string
-  booking_id: string
-  property_id: string
+  /** null = venda avulsa, sem reserva */
+  booking_id: string | null
+  /** null = não pertence a uma cabana específica */
+  property_id: string | null
   amount: number | string | null
   date: string
 }
@@ -66,29 +80,64 @@ export type BookingRevenue = {
 /**
  * Quanto de uma reserva já é faturamento e quanto ainda está por vir.
  *
- * - check-out passou  -> o valor total conta como realizado (a estadia
- *   aconteceu, então o restante foi pago na saída).
- * - check-out no futuro -> só o que está marcado como pago:
- *     fully_paid    = total
- *     deposit_paid  = sinal
- *     awaiting_deposit = nada
+ * Ordem de precedência — do dado mais confiável para o menos:
+ *
+ * 1. Cortesia/permuta -> nada entra e nada é devido (diária cedida de propósito).
+ * 2. Recebimentos lançados -> a dona registrou o que entrou; isso vence
+ *    qualquer dedução automática.
+ * 3. "Ainda não recebido" -> a estadia aconteceu mas o dinheiro não entrou
+ *    (hóspede de confiança). Continua em "A receber" mesmo com o check-out
+ *    passado, para o relatório não mostrar dinheiro que não existe.
+ * 4. Check-out passou -> assume o valor cheio recebido na saída.
+ * 5. Reserva futura -> só o que está marcado como pago.
  */
-export function bookingRevenue(b: BookingLike, hoje: string): BookingRevenue {
+export function bookingRevenue(
+  b: BookingLike,
+  hoje: string,
+  pagamentos?: PaymentLike[]
+): BookingRevenue {
   if (!isActiveBooking(b)) return { realizado: 0, aReceber: 0 }
+
+  // 1. Cortesia: diária cedida, não é receita nem dívida.
+  if (b.is_courtesy) return { realizado: 0, aReceber: 0 }
 
   const total = num(b.total_amount)
   const deposit = Math.min(num(b.deposit_amount), total)
 
+  // 2. Recebimentos reais lançados na reserva.
+  if (pagamentos && pagamentos.length > 0) {
+    const recebido = pagamentos.reduce((s, p) => s + num(p.amount), 0)
+    return { realizado: recebido, aReceber: Math.max(0, total - recebido) }
+  }
+
+  // 3. Marcada como ainda não recebida.
+  if (b.awaiting_settlement) {
+    return { realizado: 0, aReceber: total }
+  }
+
+  // 4. Estadia encerrada.
   if (hasCheckedOut(b, hoje)) {
     return { realizado: total, aReceber: 0 }
   }
 
+  // 5. Reserva futura: só o que já foi pago.
   const pago =
     b.payment_status === 'fully_paid' ? total :
     b.payment_status === 'deposit_paid' ? deposit :
     0
 
   return { realizado: pago, aReceber: Math.max(0, total - pago) }
+}
+
+/** Agrupa os recebimentos por reserva, para o cálculo em lote. */
+export function groupPayments(pagamentos: PaymentLike[]): Map<string, PaymentLike[]> {
+  const mapa = new Map<string, PaymentLike[]>()
+  for (const p of pagamentos) {
+    const lista = mapa.get(p.booking_id)
+    if (lista) lista.push(p)
+    else mapa.set(p.booking_id, [p])
+  }
+  return mapa
 }
 
 export type PropertyResult = {
@@ -110,10 +159,14 @@ export type PropertyResult = {
   gastos: number
   /** receita - gastos */
   liquido: number
-  /** Nº de reservas do período. */
+  /** Nº de reservas do período (sem contar cortesias). */
   reservas: number
   /** Noites vendidas no período. */
   noites: number
+  /** Diárias cedidas a influencer/permuta. */
+  cortesias: number
+  /** Noites cedidas em cortesia. */
+  noitesCedidas: number
 }
 
 export type FinanceResult = {
@@ -121,6 +174,8 @@ export type FinanceResult = {
   total: {
     diarias: number
     extras: number
+    /** Vendas avulsas que não pertencem a nenhuma cabana. */
+    avulsasSemCabana: number
     receita: number
     aReceber: number
     gastosDiretos: number
@@ -128,8 +183,11 @@ export type FinanceResult = {
     gastos: number
     liquido: number
     reservas: number
+    cortesias: number
+    noitesCedidas: number
     /** Margem líquida em % (0 quando não há receita). */
     margem: number
+    /** Média por reserva paga — cortesias ficam de fora para não derrubar. */
     ticketMedio: number
   }
 }
@@ -154,6 +212,8 @@ export function computeFinance(params: {
   bookings: BookingLike[]
   expenses: ExpenseLike[]
   extras: ExtraRevenueLike[]
+  /** Recebimentos lançados manualmente; quando existem, vencem a heurística. */
+  payments?: PaymentLike[]
   /** yyyy-MM-dd inclusivo */
   inicio: string
   /** yyyy-MM-dd inclusivo */
@@ -161,9 +221,10 @@ export function computeFinance(params: {
   /** yyyy-MM-dd — "hoje" para decidir o que já foi realizado */
   hoje: string
 }): FinanceResult {
-  const { properties, bookings, expenses, extras, inicio, fim, hoje } = params
+  const { properties, bookings, expenses, extras, payments = [], inicio, fim, hoje } = params
 
   const noPeriodo = (d: string) => d >= inicio && d <= fim
+  const porReserva = groupPayments(payments)
 
   const base = new Map<string, PropertyResult>()
   for (const p of properties) {
@@ -171,7 +232,7 @@ export function computeFinance(params: {
       propertyId: p.id, name: p.name,
       diarias: 0, extras: 0, receita: 0, aReceber: 0,
       gastosDiretos: 0, gastosRateados: 0, gastos: 0, liquido: 0,
-      reservas: 0, noites: 0,
+      reservas: 0, noites: 0, cortesias: 0, noitesCedidas: 0,
     })
   }
 
@@ -182,16 +243,27 @@ export function computeFinance(params: {
     if (!row) continue
     if (!isActiveBooking(b)) continue
 
-    const { realizado, aReceber } = bookingRevenue(b, hoje)
+    if (b.is_courtesy) {
+      row.cortesias += 1
+      row.noitesCedidas += noites(b)
+      continue
+    }
+
+    const { realizado, aReceber } = bookingRevenue(b, hoje, porReserva.get(b.id))
     row.diarias += realizado
     row.aReceber += aReceber
     row.reservas += 1
     row.noites += noites(b)
   }
 
-  // --- Receitas extras ---
+  // --- Receitas extras e vendas avulsas ---
+  let avulsasSemCabana = 0
   for (const e of extras) {
     if (!noPeriodo(e.date)) continue
+    if (e.property_id === null) {
+      avulsasSemCabana += num(e.amount)
+      continue
+    }
     const row = base.get(e.property_id)
     if (!row) continue
     row.extras += num(e.amount)
@@ -234,16 +306,18 @@ export function computeFinance(params: {
   const aReceber = rows.reduce((s, r) => s + r.aReceber, 0)
   const gastosDiretos = rows.reduce((s, r) => s + r.gastosDiretos, 0)
   const reservas = rows.reduce((s, r) => s + r.reservas, 0)
-  const receita = diarias + extrasTotal
+  const cortesias = rows.reduce((s, r) => s + r.cortesias, 0)
+  const noitesCedidas = rows.reduce((s, r) => s + r.noitesCedidas, 0)
+  const receita = diarias + extrasTotal + avulsasSemCabana
   const gastos = gastosDiretos + gastosGerais
 
   return {
     porCabana: rows.sort((a, b) => b.receita - a.receita),
     total: {
-      diarias, extras: extrasTotal, receita, aReceber,
+      diarias, extras: extrasTotal, avulsasSemCabana, receita, aReceber,
       gastosDiretos, gastosGerais, gastos,
       liquido: receita - gastos,
-      reservas,
+      reservas, cortesias, noitesCedidas,
       margem: receita > 0 ? ((receita - gastos) / receita) * 100 : 0,
       ticketMedio: reservas > 0 ? receita / reservas : 0,
     },

@@ -26,6 +26,12 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
   if (!booking) notFound()
 
+  const { data: payments } = await supabase
+    .from('booking_payments')
+    .select('*')
+    .eq('booking_id', resolvedParams.id)
+    .order('date', { ascending: true })
+
   const [ { data: blockedDates }, { data: bookings } ] = await Promise.all([
     supabase.from('blocked_dates').select('*').eq('property_id', booking.property_id),
     supabase.from('bookings').select('id, check_in, check_out, property_id, status').eq('property_id', booking.property_id).in('status', ['confirmed', 'checked_in', 'completed'])
@@ -36,6 +42,8 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       booking={booking}
       tenantName={tenant.business_name}
       userEmail={user.email ?? ''}
+      tenantId={tenant.id}
+      payments={payments || []}
       whatsappConnected={tenant.whatsapp_status === 'connected'}
       blockedDates={blockedDates || []}
       bookings={bookings || []}

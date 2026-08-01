@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { TrendingUp, TrendingDown, Wallet, CalendarCheck, Clock, PiggyBank } from "lucide-react"
+import { TrendingUp, TrendingDown, Wallet, CalendarCheck, Clock, PiggyBank, Gift } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
 import { startOfMonth, endOfMonth, parseISO, format, differenceInDays, subMonths } from "date-fns"
 import { computeFinance } from "@/lib/financeiro"
@@ -41,7 +41,7 @@ const td = {
   borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' as const,
 }
 
-export function RelatoriosClient({ bookings, properties, expenses, extras, categories }: any) {
+export function RelatoriosClient({ bookings, properties, expenses, extras, categories, payments = [] }: any) {
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'))
   const [cabana, setCabana] = useState<string>('all')
@@ -90,9 +90,9 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
 
   // Consolidado do período (todas as cabanas)
   const fin = useMemo(() => computeFinance({
-    properties, bookings, expenses, extras,
+    properties, bookings, expenses, extras, payments,
     inicio: startDate, fim: endDate, hoje: hojeSafe,
-  }), [properties, bookings, expenses, extras, startDate, endDate, hojeSafe])
+  }), [properties, bookings, expenses, extras, payments, startDate, endDate, hojeSafe])
 
   // Quando uma cabana está selecionada, os cartões mostram só ela
   const linhaSelecionada = cabana === 'all' ? null : fin.porCabana.find(r => r.propertyId === cabana)
@@ -106,6 +106,10 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
         ticketMedio: linhaSelecionada.reservas > 0 ? linhaSelecionada.receita / linhaSelecionada.reservas : 0,
       }
     : fin.total
+
+  const cortesiasVis = linhaSelecionada
+    ? { cortesias: linhaSelecionada.cortesias, noitesCedidas: linhaSelecionada.noitesCedidas }
+    : { cortesias: fin.total.cortesias, noitesCedidas: fin.total.noitesCedidas }
 
   // Ocupação
   const totalDiasPeriodo = Math.max(1, differenceInDays(parseISO(endDate), parseISO(startDate)) + 1)
@@ -122,7 +126,7 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
       const m = subMonths(agora, i)
       const ini = format(startOfMonth(m), 'yyyy-MM-dd')
       const fim = format(endOfMonth(m), 'yyyy-MM-dd')
-      const r = computeFinance({ properties, bookings, expenses, extras, inicio: ini, fim, hoje: hojeSafe })
+      const r = computeFinance({ properties, bookings, expenses, extras, payments, inicio: ini, fim, hoje: hojeSafe })
       const alvo = cabana === 'all' ? r.total : r.porCabana.find(x => x.propertyId === cabana)
       out.push({
         label: format(m, 'MMM'),
@@ -132,7 +136,7 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
       })
     }
     return out
-  }, [properties, bookings, expenses, extras, cabana, hojeSafe])
+  }, [properties, bookings, expenses, extras, payments, cabana, hojeSafe])
 
   const maxChart = Math.max(...chart.map(d => Math.max(d.receita, d.gastos)), 1000)
 
@@ -213,7 +217,7 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
         />
         <StatCard
           label="Ainda a receber" value={formatCurrency(vis.aReceber)}
-          sub="reservas que ainda não terminaram"
+          sub="futuras + marcadas como não recebidas"
           icon={Clock} color="var(--info-strong)"
         />
         <StatCard
@@ -221,6 +225,13 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
           sub={`ticket médio ${formatCurrency(vis.ticketMedio)}`}
           icon={CalendarCheck} color="var(--purple)"
         />
+        {cortesiasVis.cortesias > 0 && (
+          <StatCard
+            label="Diárias de cortesia" value={String(cortesiasVis.cortesias)}
+            sub={`${cortesiasVis.noitesCedidas} noite${cortesiasVis.noitesCedidas !== 1 ? 's' : ''} cedida${cortesiasVis.noitesCedidas !== 1 ? 's' : ''} (influencer/permuta)`}
+            icon={Gift} color="var(--violet-mid)"
+          />
+        )}
       </div>
 
       {/* Faturamento por cabana */}
@@ -383,9 +394,9 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
 
       <p style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '24px', lineHeight: 1.6 }}>
         <Wallet size={13} style={{ display: 'inline', verticalAlign: '-2px', marginRight: '4px' }} />
-        O faturamento conta a reserva inteira depois que o check-out passa. Antes disso, só o que já foi
+        Recebimentos lançados na reserva sempre mandam no cálculo. Sem eles, o faturamento conta a reserva inteira depois que o check-out passa; antes disso, só o que já foi
         pago (sinal ou pagamento integral) entra — o restante fica em <strong>Ainda a receber</strong>.
-        Reservas canceladas e pendentes não entram no cálculo.
+        Reservas canceladas, pendentes e de cortesia não entram no faturamento, e as marcadas como <strong>não recebidas</strong> ficam em "A receber" mesmo com a data passada.
       </p>
     </div>
   )
