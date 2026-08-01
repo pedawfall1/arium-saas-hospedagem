@@ -58,6 +58,11 @@ export type Booking = {
   mp_preference_id: string | null
   mp_payment_id: string | null
   notes: string | null
+  /** Até quando uma reserva `pending` segura as datas. Default: created_at + 24h. */
+  hold_expires_at: string | null
+  /** E-mail de quem confirmou o pagamento manualmente pelo painel. */
+  confirmed_by: string | null
+  confirmed_at: string | null
   created_at: string
   updated_at: string
   properties?: { name: string; slug: string }

@@ -10,6 +10,9 @@ import { toZonedTime, format as formatTz } from "date-fns-tz"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { useConfirm } from "@/components/ConfirmModal"
+import { ManualConfirmModal } from "@/components/ManualConfirmModal"
+import { HoldNotice } from "@/components/ui/HoldCountdown"
+import { HOLD_HOURS } from "@/lib/hold"
 
 const cardStyle = {
   backgroundColor: 'var(--surface)',
@@ -43,7 +46,7 @@ const editInputStyle = {
   boxSizing: 'border-box' as const,
 }
 
-export function BookingDetailClient({ booking, tenantName }: any) {
+export function BookingDetailClient({ booking, tenantName, userEmail, whatsappConnected }: any) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -150,6 +153,100 @@ export function BookingDetailClient({ booking, tenantName }: any) {
     }
   }
 
+  // --- Confirmação manual de pagamento (Pix direto, transferência etc.) ---
+  const [showManualConfirm, setShowManualConfirm] = useState(false)
+  const [manualLoading, setManualLoading] = useState(false)
+  const [actionMsg, setActionMsg] = useState<{ text: string, type: 'ok' | 'warn' | 'err' } | null>(null)
+
+  const guestPhoneDigits = String(booking.guest_phone || '').replace(/\D/g, '')
+  const hasUsablePhone = guestPhoneDigits.length >= 10 && guestPhoneDigits !== '00000000000'
+  const canNotify = hasUsablePhone && whatsappConnected
+
+  const notifyDisabledReason = !hasUsablePhone
+    ? 'Esta reserva não tem um telefone válido cadastrado.'
+    : 'O WhatsApp não está conectado no painel (menu WhatsApp).'
+
+  const handleManualConfirm = async (notify: boolean) => {
+    setManualLoading(true)
+    setActionMsg(null)
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({
+          status: 'confirmed',
+          payment_status: 'deposit_paid',
+          confirmed_by: userEmail || null,
+          confirmed_at: new Date().toISOString(),
+        })
+        .eq('id', booking.id)
+
+      if (error) throw error
+
+      setStatus('confirmed')
+      setPaymentStatus('deposit_paid')
+
+      // A reserva já está confirmada no banco. Se o aviso falhar, isso não
+      // desfaz a confirmação — apenas avisamos a dona para mandar na mão.
+      if (notify) {
+        try {
+          const res = await fetch('/api/whatsapp/notify-confirmation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bookingId: booking.id }),
+          })
+          const payload = await res.json().catch(() => ({}))
+          if (!res.ok) {
+            setActionMsg({
+              text: `Reserva confirmada, mas o WhatsApp não foi enviado: ${payload.error || 'erro desconhecido'}. Avise o hóspede manualmente.`,
+              type: 'warn',
+            })
+          } else {
+            setActionMsg({ text: 'Reserva confirmada e hóspede avisado no WhatsApp.', type: 'ok' })
+          }
+        } catch (err: any) {
+          setActionMsg({
+            text: `Reserva confirmada, mas o WhatsApp não foi enviado: ${err.message}. Avise o hóspede manualmente.`,
+            type: 'warn',
+          })
+        }
+      } else {
+        setActionMsg({ text: 'Reserva confirmada. As datas agora estão bloqueadas definitivamente.', type: 'ok' })
+      }
+
+      setShowManualConfirm(false)
+      router.refresh()
+    } catch (err: any) {
+      setActionMsg({ text: err.message || 'Erro ao confirmar a reserva.', type: 'err' })
+    } finally {
+      setManualLoading(false)
+    }
+  }
+
+  const handleExtendHold = async () => {
+    if (!(await confirm(
+      `Estender por mais ${HOLD_HOURS}h`,
+      'A reserva vai continuar segurando as datas por mais 24 horas a partir de agora.'
+    ))) return
+
+    setLoading(true)
+    setActionMsg(null)
+    try {
+      const newExpiry = new Date(Date.now() + HOLD_HOURS * 60 * 60 * 1000).toISOString()
+      const { error } = await supabase
+        .from('bookings')
+        .update({ hold_expires_at: newExpiry })
+        .eq('id', booking.id)
+
+      if (error) throw error
+      setActionMsg({ text: 'Prazo estendido por mais 24 horas.', type: 'ok' })
+      router.refresh()
+    } catch (err: any) {
+      setActionMsg({ text: err.message || 'Erro ao estender o prazo.', type: 'err' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleReschedule = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoadingDates(true)
@@ -185,9 +282,15 @@ export function BookingDetailClient({ booking, tenantName }: any) {
   }
 
   const handleDelete = async () => {
-    if (!(await confirm('Mover para excluídas?', 'A reserva será cancelada e enviada para a aba de Excluídas, mantendo os dados de contato.'))) return
+    if (!(await confirm(
+      'Cancelar esta reserva?',
+      'A reserva vai para a aba de Excluídas e as datas ficam livres no site imediatamente. Os dados de contato são mantidos.'
+    ))) return
     setLoading(true)
     await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id)
+    // Reservas manuais também gravam bloqueios em blocked_dates: sem remover
+    // estes, as datas continuariam presas mesmo com a reserva cancelada.
+    await supabase.from('blocked_dates').delete().eq('booking_id', booking.id)
     router.push('/dashboard/reservas')
   }
 
@@ -253,6 +356,15 @@ export function BookingDetailClient({ booking, tenantName }: any) {
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
       <ConfirmModal />
+      <ManualConfirmModal
+        isOpen={showManualConfirm}
+        booking={booking}
+        canNotify={canNotify}
+        notifyDisabledReason={notifyDisabledReason}
+        loading={manualLoading}
+        onConfirm={handleManualConfirm}
+        onCancel={() => setShowManualConfirm(false)}
+      />
       {/* Back link */}
       <Link
         href="/dashboard/reservas"
@@ -278,6 +390,78 @@ export function BookingDetailClient({ booking, tenantName }: any) {
           {booking.properties?.name} · {formatDate(booking.check_in)} → {formatDate(booking.check_out)} · {nights} noites
         </p>
       </div>
+
+      {/* Aviso da trava de 24h (só reservas pendentes) */}
+      <HoldNotice booking={{ ...booking, status }} />
+
+      {/* Resultado da última ação */}
+      {actionMsg && (
+        <div style={{
+          backgroundColor: actionMsg.type === 'ok' ? 'rgba(34,197,94,0.1)' : actionMsg.type === 'warn' ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
+          border: `1px solid ${actionMsg.type === 'ok' ? 'rgba(34,197,94,0.3)' : actionMsg.type === 'warn' ? 'rgba(245,158,11,0.35)' : 'rgba(239,68,68,0.3)'}`,
+          borderRadius: '12px',
+          padding: '14px 18px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '12px',
+        }}>
+          <p style={{
+            color: actionMsg.type === 'ok' ? '#4ade80' : actionMsg.type === 'warn' ? '#f59e0b' : '#f87171',
+            fontSize: '14px', margin: 0, fontWeight: 500, lineHeight: 1.5, flex: 1,
+          }}>
+            {actionMsg.text}
+          </p>
+          <button
+            onClick={() => setActionMsg(null)}
+            style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '14px', padding: 0 }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Ações da reserva pendente */}
+      {status === 'pending' && (
+        <div style={{ ...cardStyle, display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
+          <button
+            onClick={() => setShowManualConfirm(true)}
+            disabled={loading || manualLoading}
+            style={{
+              flex: '1 1 240px',
+              padding: '12px 16px',
+              backgroundColor: '#22c55e',
+              border: 'none',
+              borderRadius: '10px',
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: '14px',
+              cursor: (loading || manualLoading) ? 'not-allowed' : 'pointer',
+              opacity: (loading || manualLoading) ? 0.7 : 1,
+            }}
+          >
+            ✅ Confirmar pagamento manualmente
+          </button>
+          <button
+            onClick={handleExtendHold}
+            disabled={loading || manualLoading}
+            style={{
+              flex: '1 1 160px',
+              padding: '12px 16px',
+              backgroundColor: 'transparent',
+              border: '1px solid var(--border)',
+              borderRadius: '10px',
+              color: 'var(--text)',
+              fontWeight: 600,
+              fontSize: '14px',
+              cursor: (loading || manualLoading) ? 'not-allowed' : 'pointer',
+              opacity: (loading || manualLoading) ? 0.7 : 1,
+            }}
+          >
+            ⏱️ Estender +{HOLD_HOURS}h
+          </button>
+        </div>
+      )}
 
       {/* 2-column grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px', marginBottom: '16px' }}>
@@ -750,6 +934,13 @@ export function BookingDetailClient({ booking, tenantName }: any) {
             {paymentStatus === 'pending' ? 'Pendente' : paymentStatus === 'deposit_paid' ? 'Sinal pago' : paymentStatus === 'fully_paid' ? 'Pago integralmente' : 'Atrasado'}
           </div>
         </div>
+
+        {booking.confirmed_at && (
+          <p style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '14px', lineHeight: 1.5 }}>
+            ✍️ Pagamento confirmado manualmente por <strong>{booking.confirmed_by || 'usuário desconhecido'}</strong>{' '}
+            em {formatTz(toZonedTime(new Date(booking.confirmed_at), 'America/Sao_Paulo'), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR, timeZone: 'America/Sao_Paulo' })}.
+          </p>
+        )}
       </div>
 
       {/* Notes card */}

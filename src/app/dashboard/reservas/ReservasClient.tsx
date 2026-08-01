@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from "@/lib/utils"
 import { StatusBadge } from "@/components/ui/Badge"
 import { BookOpen, TrendingUp, Calendar } from "lucide-react"
 import { differenceInDays, parseISO, format } from "date-fns"
+import { HoldCountdown } from "@/components/ui/HoldCountdown"
 
 export function ReservasClient({ bookings, properties }: { bookings: any[], properties: any[] }) {
   const router = useRouter()
@@ -306,6 +307,7 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
                     </td>
                     <td style={{ padding: '16px 24px' }}>
                       <StatusBadge status={booking.status} />
+                      <HoldCountdown booking={booking} />
                     </td>
                     <td style={{ padding: '16px 24px' }}>
                       <StatusBadge status={booking.payment_status} />
@@ -339,6 +341,7 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
                 <StatusBadge status={booking.status} />
                 <p style={{ color: 'var(--accent)', fontSize: '13px', fontWeight: 600 }}>{formatCurrency(booking.total_amount)}</p>
               </div>
+              <HoldCountdown booking={booking} />
             </a>
           ))}
           {filtered.length === 0 && (

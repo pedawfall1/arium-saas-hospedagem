@@ -11,7 +11,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
 
   const { data: tenant } = await supabase
     .from('saas_reserva_tenants')
-    .select('id, business_name')
+    .select('id, business_name, whatsapp_status')
     .eq('auth_user_id', user.id)
     .single()
 
@@ -32,9 +32,11 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
   ])
 
   return (
-    <BookingDetailClient 
-      booking={booking} 
-      tenantName={tenant.business_name} 
+    <BookingDetailClient
+      booking={booking}
+      tenantName={tenant.business_name}
+      userEmail={user.email ?? ''}
+      whatsappConnected={tenant.whatsapp_status === 'connected'}
       blockedDates={blockedDates || []}
       bookings={bookings || []}
     />

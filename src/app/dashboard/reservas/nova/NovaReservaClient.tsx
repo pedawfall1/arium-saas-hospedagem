@@ -168,7 +168,9 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
             property_id: formData.property_id,
             date: current.toISOString().split('T')[0],
             reason: 'Reserva manual: ' + guestName,
-            guest_name: guestName
+            guest_name: guestName,
+            // Vincula o bloqueio à reserva para que cancelá-la libere estas datas.
+            booking_id: data[0].id
           })
           current.setDate(current.getDate() + 1)
         }
