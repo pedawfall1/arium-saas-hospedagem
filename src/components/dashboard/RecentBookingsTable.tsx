@@ -105,7 +105,7 @@ export function RecentBookingsTable({ bookings }: { bookings: any[] }) {
                       onClick={(e) => handleWppClick(e, b.guest_phone)}
                       style={{
                         background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: '#25D366', padding: '4px', borderRadius: '4px'
+                        color: 'var(--whatsapp)', padding: '4px', borderRadius: '4px'
                       }}
                       title="Chamar no WhatsApp"
                     >

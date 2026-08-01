@@ -13,6 +13,32 @@
     --accent: #7c3aed;
     --purple: #7c3aed;
     --border: rgba(255, 255, 255, 0.1);
+
+    /* Cores de estado — tons claros (família 400), legíveis sobre fundo escuro.
+       O tema claro sobrescreve com as versões escuras (família 700/800), porque
+       estes tons somem sobre branco. Sempre use estas variáveis em vez de hex
+       fixo, senão o texto fica ilegível em um dos dois temas. */
+    --success: #4ade80;
+    --success-strong: #22c55e;
+    --danger: #f87171;
+    --danger-strong: #f15b5b;
+    --warning: #facc15;
+    --info: #60a5fa;
+    --info-strong: #4f8ff7;
+    --neutral-soft: #94a3b8;
+    --whatsapp: #25d366;
+    --revenue: #f97b00;
+
+    /* Laranja das reservas (cards do calendário) */
+    --booking: #fb923c;
+    --booking-title: #fed7aa;
+    --booking-sub: #fdba74;
+    --booking-text: #d1d5db;
+
+    /* Roxos dos selos de plano */
+    --violet-soft: #a78bfa;
+    --violet-mid: #c084fc;
+    --violet-strong: #e879f9;
   }
 
 
@@ -629,6 +655,28 @@ body::before {
   --accent: #7c3aed;
   --purple: #7c3aed;
   --purple-dim: rgba(124,58,237,0.08);
+
+  /* Versões escuras das cores de estado: todas com contraste >= 4.5:1 sobre
+     --surface (#fff) e sobre os fundos tingidos (rgba(cor, 0.08-0.25)). */
+  --success: #146e35;
+  --success-strong: #146e35;
+  --danger: #b91c1c;
+  --danger-strong: #b91c1c;
+  --warning: #854d0e;
+  --info: #1d4ed8;
+  --info-strong: #1d4ed8;
+  --neutral-soft: #475569;
+  --whatsapp: #0f7a3d;
+  --revenue: #b45309;
+
+  --booking: #7c2d12;
+  --booking-title: #7c2d12;
+  --booking-sub: #9a3412;
+  --booking-text: #374151;
+
+  --violet-soft: #6d28d9;
+  --violet-mid: #7e22ce;
+  --violet-strong: #86198f;
 }
 
 [data-theme="light"] ::-webkit-calendar-picker-indicator {

@@ -50,7 +50,7 @@ export function RevenueChart({ bookings }: { bookings: any[] }) {
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)'
         }}>
           <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '4px', textTransform: 'capitalize' }}>{label}</p>
-          <p style={{ color: '#F97316', fontWeight: 700, fontSize: '16px' }}>
+          <p style={{ color: 'var(--booking)', fontWeight: 700, fontSize: '16px' }}>
             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payload[0].value)}
           </p>
         </div>

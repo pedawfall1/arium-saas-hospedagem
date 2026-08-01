@@ -153,16 +153,18 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
       : Number(property.single_night_weekday_price || property.base_price_weekday)
   }
 
+  // Textos usam variáveis de tema (escurecem no tema claro); fundos e bordas
+  // continuam em rgba/hex fixo, pois só tingem levemente e funcionam nos dois.
   const getCabinColors = (index: number) => {
     if (index === 0) return {
       // Doce Encanto — red for blocked
       booking: 'rgba(249,123,0,0.08)',
       bookingPill: '#f97b0022',
-      bookingText: '#f97b00',
+      bookingText: 'var(--revenue)',
       blocked: 'rgba(239,68,68,0.06)',
       blockedPill: '#ef444422',
-      blockedText: '#ef4444',
-      accent: '#f97b00',
+      blockedText: 'var(--danger-strong)',
+      accent: 'var(--revenue)',
     }
     return {
       // Vale das Flores — yellow for blocked
@@ -171,7 +173,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
       bookingText: '#7c3aed',
       blocked: 'rgba(234,179,8,0.06)',
       blockedPill: '#eab30822',
-      blockedText: '#eab308',
+      blockedText: 'var(--warning)',
       accent: '#7c3aed',
     }
   }
@@ -487,7 +489,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                   setLoading(false)
                 }}
                 disabled={loading}
-                style={{ flex: 1, padding: '10px 16px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: '#f87171', fontWeight: 600, fontSize: '14px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}
+                style={{ flex: 1, padding: '10px 16px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: 'var(--danger)', fontWeight: 600, fontSize: '14px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}
               >
                 {loading ? 'Processando...' : 'Desbloquear período'}
               </button>
@@ -664,7 +666,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                         borderRadius: '3px',
                         lineHeight: '14px',
                         backgroundColor: propertyIndex(otherProperty.id) === 0 ? '#ef444422' : '#eab30822',
-                        color: propertyIndex(otherProperty.id) === 0 ? '#ef4444' : '#eab308',
+                        color: propertyIndex(otherProperty.id) === 0 ? 'var(--danger-strong)' : 'var(--warning)',
                         border: `1px solid ${propertyIndex(otherProperty.id) === 0 ? '#ef444444' : '#eab30844'}`,
                         whiteSpace: 'nowrap',
                       }}>
@@ -690,7 +692,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                         maxWidth: '100%',
                         textAlign: 'center',
                         backgroundColor: propertyIndex(booking.property_id) === 0 ? 'rgba(124,58,237,0.3)' : 'rgba(249,115,22,0.3)',
-                        color: propertyIndex(booking.property_id) === 0 ? 'var(--accent)' : '#fb923c',
+                        color: propertyIndex(booking.property_id) === 0 ? 'var(--accent)' : 'var(--booking)',
                         opacity: isPast ? 0.35 : 1,
                       }}>
                         Reservado
@@ -703,7 +705,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                         borderRadius: '4px',
                         fontSize: 'clamp(8px, 1.8vw, 11px)',
                         backgroundColor: propertyIndex(filterProperty) === 0 ? '#ef444422' : '#eab30822',
-                        color: propertyIndex(filterProperty) === 0 ? '#ef4444' : '#eab308',
+                        color: propertyIndex(filterProperty) === 0 ? 'var(--danger-strong)' : 'var(--warning)',
                         border: `1px solid ${propertyIndex(filterProperty) === 0 ? '#ef444444' : '#eab30844'}`,
                         textAlign: 'center',
                         whiteSpace: 'nowrap',
@@ -727,7 +729,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                         fontSize: 'clamp(11px, 1.5vw, 13px)',
                         fontWeight: 800,
                         backgroundColor: 'rgba(249,115,22,0.2)',
-                        color: '#fb923c',
+                        color: 'var(--booking)',
                         border: '1px solid rgba(249,115,22,0.4)',
                         opacity: isPast ? 0.35 : 1,
                       }}>
@@ -974,7 +976,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                                     fontSize: 'clamp(11px, 1.5vw, 13px)',
                                     fontWeight: 800,
                                     backgroundColor: 'rgba(249,115,22,0.2)',
-                                    color: '#fb923c',
+                                    color: 'var(--booking)',
                                     border: '1px solid rgba(249,115,22,0.4)',
                                     opacity: isPast ? 0.35 : 1,
                                   }}>
@@ -1052,7 +1054,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                         {b.guest_name && (
                           <p style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600, marginBottom: '2px' }}>{b.guest_name}</p>
                         )}
-                        <p style={{ color: '#f87171', fontSize: '13px' }}>{b.reason || 'Bloqueado'}{isPast && (
+                        <p style={{ color: 'var(--danger)', fontSize: '13px' }}>{b.reason || 'Bloqueado'}{isPast && (
                           <span style={{ fontSize: '10px', color: 'var(--muted)', backgroundColor: 'var(--bg)', borderRadius: '4px', padding: '1px 5px', marginLeft: '6px' }}>
                             passado
                           </span>
@@ -1100,13 +1102,13 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
             {selectedDay.dayBookings.map((b: any) => (
               <div key={b.id} style={{ border: '1px solid rgba(249,115,22,0.5)', backgroundColor: 'rgba(249,115,22,0.25)', borderRadius: '12px', padding: '16px', borderLeft: '4px solid #f97316' }}>
                 <div className="flex justify-between items-start mb-3">
-                  <p className="font-semibold text-lg" style={{ color: '#fed7aa' }}>{b.guest_name}</p>
+                  <p className="font-semibold text-lg" style={{ color: 'var(--booking-title)' }}>{b.guest_name}</p>
                   <StatusBadge status={b.status} />
                 </div>
-                <p className="text-sm mb-1" style={{ color: '#fdba74' }}>
+                <p className="text-sm mb-1" style={{ color: 'var(--booking-sub)' }}>
                   {b.properties?.name || sortedProperties.find((p:any) => p.id === b.property_id)?.name}
                 </p>
-                <p className="text-sm mb-4" style={{ color: '#d1d5db' }}>
+                <p className="text-sm mb-4" style={{ color: 'var(--booking-text)' }}>
                   Entra: {formatDate(b.check_in)} | Sai: {formatDate(b.check_out)}
                 </p>
                 <Button
@@ -1115,7 +1117,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                     width: '100%',
                     backgroundColor: 'rgba(249,115,22,0.3)',
                     border: '1px solid rgba(249,115,22,0.7)',
-                    color: '#fb923c',
+                    color: 'var(--booking)',
                     borderRadius: '8px',
                     padding: '8px 16px',
                     fontSize: '13px',
@@ -1143,7 +1145,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                 {editingBlock === block.id ? (
                   // EDIT MODE
                   <>
-                    <p style={{ color: '#f87171', fontWeight: 600, fontSize: '15px', marginBottom: '12px' }}>Editar bloqueio</p>
+                    <p style={{ color: 'var(--danger)', fontWeight: 600, fontSize: '15px', marginBottom: '12px' }}>Editar bloqueio</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '12px' }}>
                       <input
                         type="text"
@@ -1170,7 +1172,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                       <button
                         onClick={() => handleEditBlock(block.id)}
                         disabled={loading}
-                        style={{ flex: 1, padding: '8px', backgroundColor: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: '#f87171', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+                        style={{ flex: 1, padding: '8px', backgroundColor: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: 'var(--danger)', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
                       >
                         {loading ? 'Salvando...' : 'Salvar'}
                       </button>
@@ -1180,7 +1182,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                   // VIEW MODE
                   <>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <p style={{ color: '#f87171', fontWeight: 600, fontSize: '15px' }}>Data Bloqueada</p>
+                      <p style={{ color: 'var(--danger)', fontWeight: 600, fontSize: '15px' }}>Data Bloqueada</p>
                       <button
                         onClick={() => {
                           setEditingBlock(block.id)
@@ -1203,7 +1205,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                     <button
                       onClick={() => handleUnblock(block.id)}
                       disabled={loading}
-                      style={{ width: '100%', padding: '10px', backgroundColor: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: '#f87171', fontWeight: 600, fontSize: '13px', cursor: 'pointer', marginTop: (!block.guest_name && !block.reason) ? '12px' : '0' }}
+                      style={{ width: '100%', padding: '10px', backgroundColor: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: 'var(--danger)', fontWeight: 600, fontSize: '13px', cursor: 'pointer', marginTop: (!block.guest_name && !block.reason) ? '12px' : '0' }}
                     >
                       {loading ? 'Processando...' : '🔓 Desbloquear esta data'}
                     </button>

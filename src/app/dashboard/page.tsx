@@ -133,7 +133,7 @@ export default async function TenantDashboardPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '8px' }}>Aguardando ação</p>
-                <p className="stat-number" style={{ fontSize: 'clamp(24px, 6vw, 40px)', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: '#ef4444' }}>{pendingBookings}</p>
+                <p className="stat-number" style={{ fontSize: 'clamp(24px, 6vw, 40px)', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: 'var(--danger-strong)' }}>{pendingBookings}</p>
               </div>
               <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'rgba(239,68,68,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(239,68,68,0.2)' }}>
                 <BookOpen size={20} color="#f87171" />
@@ -147,7 +147,7 @@ export default async function TenantDashboardPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '8px' }}>Receita este mês</p>
-                <p className="stat-number" style={{ fontSize: 'clamp(22px, 5vw, 40px)', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: '#f97b00', whiteSpace: 'nowrap' }}>{formatCurrency(revenueThisMonth)}</p>
+                <p className="stat-number" style={{ fontSize: 'clamp(22px, 5vw, 40px)', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: 'var(--revenue)', whiteSpace: 'nowrap' }}>{formatCurrency(revenueThisMonth)}</p>
               </div>
               <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'rgba(249,123,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(249,123,0,0.2)' }}>
                 <TrendingUp size={20} color="#fb923c" />
@@ -161,7 +161,7 @@ export default async function TenantDashboardPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '8px' }}>Check-in</p>
-                <p className="stat-number" style={{ fontSize: 'clamp(20px, 5vw, 26px)', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: '#3b82f6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nextCheckin}</p>
+                <p className="stat-number" style={{ fontSize: 'clamp(20px, 5vw, 26px)', fontWeight: 800, lineHeight: 1, marginTop: '12px', color: 'var(--info-strong)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nextCheckin}</p>
               </div>
               <div style={{ width: '44px', height: '44px', borderRadius: '12px', backgroundColor: 'rgba(59,130,246,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(59,130,246,0.2)', flexShrink: 0 }}>
                 <Calendar size={20} color="#60a5fa" />

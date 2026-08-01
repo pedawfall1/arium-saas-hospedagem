@@ -338,19 +338,21 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
   const checkOut = new Date(booking.check_out)
   const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
 
-  const statusColors: Record<string, string> = {
-    pending: '#f59e0b',
-    confirmed: '#22c55e',
-    checked_in: '#3b82f6',
-    completed: '#6b7280',
-    cancelled: '#ef4444',
+  // Texto via variável de tema (escurece no tema claro); fundo como rgba fixo,
+  // porque o truque `${hex}20` de opacidade não funciona com var().
+  const statusColors: Record<string, { fg: string, bg: string }> = {
+    pending:    { fg: 'var(--warning)',        bg: 'rgba(245,158,11,0.13)' },
+    confirmed:  { fg: 'var(--success-strong)', bg: 'rgba(34,197,94,0.13)' },
+    checked_in: { fg: 'var(--info-strong)',    bg: 'rgba(59,130,246,0.13)' },
+    completed:  { fg: 'var(--neutral-soft)',   bg: 'rgba(107,114,128,0.13)' },
+    cancelled:  { fg: 'var(--danger-strong)',  bg: 'rgba(239,68,68,0.13)' },
   }
 
-  const paymentStatusColors: Record<string, string> = {
-    pending: '#f59e0b',
-    deposit_paid: '#22c55e',
-    fully_paid: '#3b82f6',
-    overdue: '#ef4444',
+  const paymentStatusColors: Record<string, { fg: string, bg: string }> = {
+    pending:      { fg: 'var(--warning)',        bg: 'rgba(245,158,11,0.13)' },
+    deposit_paid: { fg: 'var(--success-strong)', bg: 'rgba(34,197,94,0.13)' },
+    fully_paid:   { fg: 'var(--info-strong)',    bg: 'rgba(59,130,246,0.13)' },
+    overdue:      { fg: 'var(--danger-strong)',  bg: 'rgba(239,68,68,0.13)' },
   }
 
   return (
@@ -407,7 +409,7 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
           gap: '12px',
         }}>
           <p style={{
-            color: actionMsg.type === 'ok' ? '#4ade80' : actionMsg.type === 'warn' ? '#f59e0b' : '#f87171',
+            color: actionMsg.type === 'ok' ? 'var(--success)' : actionMsg.type === 'warn' ? 'var(--warning)' : 'var(--danger)',
             fontSize: '14px', margin: 0, fontWeight: 500, lineHeight: 1.5, flex: 1,
           }}>
             {actionMsg.text}
@@ -692,7 +694,7 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
                 />
               </div>
               {errorMsg && (
-                <p style={{ color: '#f87171', fontSize: '13px', margin: 0, fontWeight: 500 }}>{errorMsg}</p>
+                <p style={{ color: 'var(--danger)', fontSize: '13px', margin: 0, fontWeight: 500 }}>{errorMsg}</p>
               )}
               <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                 <button
@@ -799,7 +801,7 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
               <span style={{ color: 'var(--muted)', fontSize: '14px' }}>Sinal</span>
-              <span style={{ color: '#22c55e', fontSize: '15px', fontWeight: 600 }}>
+              <span style={{ color: 'var(--success-strong)', fontSize: '15px', fontWeight: 600 }}>
                 {formatCurrency(booking.deposit_amount)}
               </span>
             </div>
@@ -914,8 +916,8 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
           <div style={{
             padding: '6px 12px',
             borderRadius: '6px',
-            backgroundColor: `${statusColors[status]}20`,
-            color: statusColors[status],
+            backgroundColor: statusColors[status]?.bg,
+            color: statusColors[status]?.fg,
             fontSize: '12px',
             fontWeight: 600,
             textTransform: 'uppercase',
@@ -925,8 +927,8 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
           <div style={{
             padding: '6px 12px',
             borderRadius: '6px',
-            backgroundColor: `${paymentStatusColors[paymentStatus]}20`,
-            color: paymentStatusColors[paymentStatus],
+            backgroundColor: paymentStatusColors[paymentStatus]?.bg,
+            color: paymentStatusColors[paymentStatus]?.fg,
             fontSize: '12px',
             fontWeight: 600,
             textTransform: 'uppercase',
@@ -995,7 +997,7 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
             backgroundColor: 'rgba(239,68,68,0.1)',
             border: '1px solid rgba(239,68,68,0.3)',
             borderRadius: '10px',
-            color: '#f87171',
+            color: 'var(--danger)',
             fontWeight: 600,
             fontSize: '14px',
             cursor: loading ? 'not-allowed' : 'pointer',

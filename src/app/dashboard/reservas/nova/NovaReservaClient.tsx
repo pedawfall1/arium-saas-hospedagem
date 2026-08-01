@@ -240,13 +240,13 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
 
       {errorMsg && (
         <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '16px', marginBottom: '24px' }}>
-          <p style={{ color: '#f87171', fontSize: '14px', margin: 0, fontWeight: 500 }}>{errorMsg}</p>
+          <p style={{ color: 'var(--danger)', fontSize: '14px', margin: 0, fontWeight: 500 }}>{errorMsg}</p>
         </div>
       )}
 
       {success && (
         <div style={{ backgroundColor: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: '8px', padding: '16px', marginBottom: '24px' }}>
-          <p style={{ color: '#4ade80', fontSize: '14px', margin: 0, fontWeight: 500 }}>Reserva salva com sucesso! Redirecionando...</p>
+          <p style={{ color: 'var(--success)', fontSize: '14px', margin: 0, fontWeight: 500 }}>Reserva salva com sucesso! Redirecionando...</p>
         </div>
       )}
 

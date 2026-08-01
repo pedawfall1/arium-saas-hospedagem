@@ -31,9 +31,10 @@ function useMinuteTick(): Date | null {
   return now
 }
 
-const EXPIRED = { fg: "var(--muted)", bg: "rgba(148,163,184,0.12)", bd: "rgba(148,163,184,0.28)" }
-const URGENT = { fg: "#f59e0b", bg: "rgba(245,158,11,0.12)", bd: "rgba(245,158,11,0.35)" }
-const NORMAL = { fg: "#3b82f6", bg: "rgba(59,130,246,0.12)", bd: "rgba(59,130,246,0.30)" }
+// Cores via variáveis de tema: os tons "400" somem sobre fundo claro.
+const EXPIRED = { fg: "var(--neutral-soft)", bg: "rgba(148,163,184,0.12)", bd: "rgba(148,163,184,0.28)" }
+const URGENT = { fg: "var(--warning)", bg: "rgba(245,158,11,0.12)", bd: "rgba(245,158,11,0.35)" }
+const NORMAL = { fg: "var(--info-strong)", bg: "rgba(59,130,246,0.12)", bd: "rgba(59,130,246,0.30)" }
 
 /** Selo compacto para listagem/tabela. */
 export function HoldCountdown({ booking }: { booking: HoldBooking }) {

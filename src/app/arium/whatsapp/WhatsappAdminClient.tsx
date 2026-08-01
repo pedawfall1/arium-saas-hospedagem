@@ -186,7 +186,7 @@ export default function WhatsappAdminClient({ initialTenants }: { initialTenants
                 </td>
                 <td style={{ padding: '16px 24px' }}>
                   {t.whatsapp_status === 'connected' ? (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#25D366', fontSize: '13px', fontWeight: 500, backgroundColor: 'rgba(37,211,102,0.1)', padding: '4px 10px', borderRadius: '12px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--whatsapp)', fontSize: '13px', fontWeight: 500, backgroundColor: 'rgba(37,211,102,0.1)', padding: '4px 10px', borderRadius: '12px' }}>
                       <CheckCircle2 size={14} /> Conectado
                     </span>
                   ) : (
@@ -254,7 +254,7 @@ export default function WhatsappAdminClient({ initialTenants }: { initialTenants
             
             <div style={{ padding: '32px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '20px' }}>
               {error && (
-                <div style={{ width: '100%', padding: '12px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', borderRadius: '8px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                <div style={{ width: '100%', padding: '12px', backgroundColor: 'rgba(239,68,68,0.1)', color: 'var(--danger-strong)', borderRadius: '8px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
                   <AlertCircle size={16} />
                   {error}
                 </div>

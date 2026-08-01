@@ -45,7 +45,7 @@ function MiniCalendar({ propertyId, blocks, onToggleBlock }: any) {
           }
           
           if (block) {
-            cellStyle = { ...cellStyle, backgroundColor: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171' }
+            cellStyle = { ...cellStyle, backgroundColor: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--danger)' }
           } else if (today) {
             cellStyle = { ...cellStyle, border: '1px solid var(--purple)', color: 'var(--accent)' }
           }
@@ -462,10 +462,10 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                                 <button onClick={() => handleReplicateRule(r)} title="Replicar para outras propriedades" style={{ backgroundColor: 'rgba(139,92,246,0.1)', color: 'var(--purple)', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <Copy size={16} />
                                 </button>
-                                <button onClick={() => handleEditRule(r)} title="Editar regra" style={{ backgroundColor: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <button onClick={() => handleEditRule(r)} title="Editar regra" style={{ backgroundColor: 'rgba(59,130,246,0.1)', color: 'var(--info-strong)', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <Edit2 size={16} />
                                 </button>
-                                <button onClick={() => handleDeleteRule(r.id)} title="Excluir regra" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <button onClick={() => handleDeleteRule(r.id)} title="Excluir regra" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: 'var(--danger)', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <Trash2 size={16} />
                                 </button>
                               </div>
@@ -509,9 +509,9 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                                 flexDirection: 'column',
                                 gap: '4px'
                               }}>
-                                <p style={{ fontWeight: 600, color: '#ffffff', fontSize: '14px' }}>{h.name}</p>
+                                <p style={{ fontWeight: 600, color: 'var(--text)', fontSize: '14px' }}>{h.name}</p>
                                 {h.price && (
-                                  <span style={{ color: '#a78bfa', fontWeight: 500, fontSize: '14px' }}>
+                                  <span style={{ color: 'var(--violet-soft)', fontWeight: 500, fontSize: '14px' }}>
                                     {formatCurrency(h.price)}
                                   </span>
                                 )}
@@ -532,10 +532,10 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                                 <button onClick={() => handleReplicateHoliday(h)} title="Replicar para outras propriedades" style={{ backgroundColor: 'rgba(139,92,246,0.1)', color: 'var(--purple)', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <Copy size={16} />
                                 </button>
-                                <button onClick={() => handleEditHoliday(h)} title="Editar feriado" style={{ backgroundColor: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <button onClick={() => handleEditHoliday(h)} title="Editar feriado" style={{ backgroundColor: 'rgba(59,130,246,0.1)', color: 'var(--info-strong)', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <Edit2 size={16} />
                                 </button>
-                                <button onClick={() => handleDeleteHoliday(h.id)} title="Excluir feriado" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <button onClick={() => handleDeleteHoliday(h.id)} title="Excluir feriado" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: 'var(--danger)', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                   <Trash2 size={16} />
                                 </button>
                               </div>

@@ -104,7 +104,7 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
               <TrendingUp size={20} color="var(--purple)" />
             </div>
           </div>
-          <p style={{ color: '#f97b00', fontSize: 'clamp(22px, 5vw, 40px)', fontWeight: 800, whiteSpace: 'nowrap' }}>{formatCurrency(receitaConfirmada)}</p>
+          <p style={{ color: 'var(--revenue)', fontSize: 'clamp(22px, 5vw, 40px)', fontWeight: 800, whiteSpace: 'nowrap' }}>{formatCurrency(receitaConfirmada)}</p>
         </div>
 
         {/* Stat 3 */}
@@ -115,7 +115,7 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
               <Calendar size={20} color="var(--purple)" />
             </div>
           </div>
-          <p style={{ color: '#3b82f6', fontSize: 'clamp(18px, 4vw, 40px)', fontWeight: 800 }}>{proximoCheckinStr}</p>
+          <p style={{ color: 'var(--info-strong)', fontSize: 'clamp(18px, 4vw, 40px)', fontWeight: 800 }}>{proximoCheckinStr}</p>
         </div>
       </div>
 

@@ -113,7 +113,7 @@ export default function WhatsappClient({ initialTenant }: { initialTenant: any }
     <div style={{ padding: '32px', maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ marginBottom: '32px' }}>
         <h1 style={{ color: 'var(--text)', fontSize: '28px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <MessageCircle size={28} style={{ color: '#25D366' }} />
+          <MessageCircle size={28} style={{ color: 'var(--whatsapp)' }} />
           Integração WhatsApp
         </h1>
         <p style={{ color: 'var(--muted)', fontSize: '15px', marginTop: '8px' }}>
@@ -133,7 +133,7 @@ export default function WhatsappClient({ initialTenant }: { initialTenant: any }
         gap: '24px'
       }}>
         {error && (
-          <div style={{ width: '100%', padding: '16px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', borderRadius: '8px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+          <div style={{ width: '100%', padding: '16px', backgroundColor: 'rgba(239,68,68,0.1)', color: 'var(--danger-strong)', borderRadius: '8px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
             <AlertCircle size={18} />
             {error}
           </div>

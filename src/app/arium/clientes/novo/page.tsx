@@ -117,7 +117,7 @@ export default function NovoClientePage() {
             />
           </div>
 
-          {error && <p style={{ color: '#f87171', fontSize: '13px' }}>{error}</p>}
+          {error && <p style={{ color: 'var(--danger)', fontSize: '13px' }}>{error}</p>}
 
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '8px' }}>
             <a href="/arium/clientes" style={{

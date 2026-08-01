@@ -91,7 +91,7 @@ export default function Sidebar({ userName, userEmail, role, onNavClick }: Sideb
                   : hoveredLink === href
                     ? 'rgba(124,58,237,0.08)'
                     : 'transparent',
-                color: isActive ? '#c084fc' : hoveredLink === href ? '#a78bfa' : 'var(--muted)',
+                color: isActive ? 'var(--violet-mid)' : hoveredLink === href ? 'var(--violet-soft)' : 'var(--muted)',
                 borderLeft: isActive ? '3px solid #7c3aed' : '3px solid transparent',
                 fontWeight: isActive ? 600 : 400,
                 fontSize: '15px',
@@ -148,7 +148,7 @@ export default function Sidebar({ userName, userEmail, role, onNavClick }: Sideb
           border: '1px solid var(--border)', borderRadius: '8px',
           padding: '7px 12px', cursor: 'pointer', transition: 'all 0.15s', width: '100%',
         }}
-        onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = 'rgba(248,113,113,0.3)' }}
+        onMouseEnter={e => { e.currentTarget.style.color = 'var(--danger)'; e.currentTarget.style.borderColor = 'rgba(248,113,113,0.3)' }}
         onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
         >
           <LogOut size={13} />
