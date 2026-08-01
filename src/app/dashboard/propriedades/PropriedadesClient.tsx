@@ -9,6 +9,14 @@ import { formatCurrency, formatDate } from "@/lib/utils"
 import { addMonths, eachDayOfInterval, endOfMonth, format, isSameMonth, isToday, startOfMonth, startOfWeek, endOfWeek } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { useConfirm } from "@/components/ConfirmModal"
+import { MoneyInput } from "@/components/ui/MoneyInput"
+import { parseMoney } from "@/lib/money"
+
+const precoInputStyle = {
+  backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px',
+  padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%',
+  outline: 'none', boxSizing: 'border-box' as const,
+}
 
 function MiniCalendar({ propertyId, blocks, onToggleBlock }: any) {
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()))
@@ -99,22 +107,59 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
   const activeRules = rules.filter((r: any) => r.property_id === activeTab)
   const activeHolidays = holidays.filter((h: any) => h.property_id === activeTab)
 
+  const [pricesMsg, setPricesMsg] = useState<{ text: string, type: 'ok' | 'err' } | null>(null)
+
   const handlePriceChange = (field: string, value: any) => {
+    setPricesMsg(null)
     setProperties(properties.map((p: any) => p.id === activeTab ? { ...p, [field]: value } : p))
   }
 
   const savePrices = async () => {
     if (!activeProp) return
+    setPricesMsg(null)
+
+    // Os campos de preço guardam o texto cru para a pessoa poder digitar
+    // "800,50"; a conversão acontece aqui. Sem isto, Number("800,50") = NaN
+    // e o preço da cabana ia para o banco zerado ou quebrado.
+    const campos: [string, string][] = [
+      ['base_price_weekday', 'Dias úteis'],
+      ['base_price_weekend', 'Fim de semana'],
+      ['single_night_weekday_price', 'Isolada dia útil'],
+    ]
+    const precos: Record<string, number | null> = {}
+    for (const [campo, rotulo] of campos) {
+      const bruto = activeProp[campo]
+      if (bruto === '' || bruto === null || bruto === undefined) {
+        precos[campo] = null
+        continue
+      }
+      const n = parseMoney(bruto)
+      if (isNaN(n) || n < 0) {
+        setPricesMsg({ text: `Preço inválido em "${rotulo}". Use por exemplo 800 ou 800,50.`, type: 'err' })
+        return
+      }
+      precos[campo] = n
+    }
+
+    // base_price_weekday e base_price_weekend são obrigatórios no banco
+    if (precos.base_price_weekday === null || precos.base_price_weekend === null) {
+      setPricesMsg({ text: 'Dias úteis e Fim de semana são obrigatórios.', type: 'err' })
+      return
+    }
+
     setSavingPrices(true)
-    await supabase.from('properties').update({
-      base_price_weekday: activeProp.base_price_weekday,
-      base_price_weekend: activeProp.base_price_weekend,
-      single_night_weekday_price: activeProp.single_night_weekday_price,
-      min_nights_weekday: activeProp.min_nights_weekday,
-      min_nights_weekend: activeProp.min_nights_weekend,
-      min_nights_holiday: activeProp.min_nights_holiday,
+    const { error } = await supabase.from('properties').update({
+      ...precos,
+      min_nights_weekday: Number(activeProp.min_nights_weekday) || 1,
+      min_nights_weekend: Number(activeProp.min_nights_weekend) || 1,
+      min_nights_holiday: Number(activeProp.min_nights_holiday) || 1,
     }).eq('id', activeProp.id)
     setSavingPrices(false)
+
+    // Antes o erro era engolido: a dona clicava em salvar e nada acontecia.
+    setPricesMsg(error
+      ? { text: `Erro ao salvar: ${error.message}`, type: 'err' }
+      : { text: 'Preços salvos.', type: 'ok' })
   }
 
   const handleAddRule = async (e: React.FormEvent) => {
@@ -354,32 +399,38 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                   <div style={{ minWidth: 0 }}>
                     <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Dias Úteis (R$)</label>
-                    <input 
-                      type="number"
-                      value={activeProp.base_price_weekday || ''} 
-                      onChange={e => handlePriceChange('base_price_weekday', Number(e.target.value))} 
-                      style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none' }}
+                    <MoneyInput
+                      value={activeProp.base_price_weekday == null ? '' : String(activeProp.base_price_weekday)}
+                      onChange={v => handlePriceChange('base_price_weekday', v)}
+                      style={precoInputStyle}
                     />
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Fim de Semana (R$)</label>
-                    <input 
-                      type="number"
-                      value={activeProp.base_price_weekend || ''} 
-                      onChange={e => handlePriceChange('base_price_weekend', Number(e.target.value))} 
-                      style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none' }}
+                    <MoneyInput
+                      value={activeProp.base_price_weekend == null ? '' : String(activeProp.base_price_weekend)}
+                      onChange={v => handlePriceChange('base_price_weekend', v)}
+                      style={precoInputStyle}
                     />
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Isolada Dia Útil (R$)</label>
-                    <input
-                      type="number"
-                      value={activeProp.single_night_weekday_price || ''}
-                      onChange={e => handlePriceChange('single_night_weekday_price', Number(e.target.value))}
-                      style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none' }}
+                    <MoneyInput
+                      value={activeProp.single_night_weekday_price == null ? '' : String(activeProp.single_night_weekday_price)}
+                      onChange={v => handlePriceChange('single_night_weekday_price', v)}
+                      style={precoInputStyle}
                     />
                   </div>
                 </div>
+
+                {pricesMsg && (
+                  <p style={{
+                    marginTop: '14px', fontSize: '13px', fontWeight: 500,
+                    color: pricesMsg.type === 'ok' ? 'var(--success)' : 'var(--danger)',
+                  }}>
+                    {pricesMsg.text}
+                  </p>
+                )}
 
                 <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
                   <h3 style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600, marginBottom: '16px' }}>Mínimo de Noites</h3>

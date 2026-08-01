@@ -13,6 +13,8 @@ import { useConfirm } from "@/components/ConfirmModal"
 import { ManualConfirmModal } from "@/components/ManualConfirmModal"
 import { HoldNotice } from "@/components/ui/HoldCountdown"
 import { HOLD_HOURS } from "@/lib/hold"
+import { MoneyInput } from "@/components/ui/MoneyInput"
+import { parseMoney } from "@/lib/money"
 
 const cardStyle = {
   backgroundColor: 'var(--surface)',
@@ -79,10 +81,15 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
   }
 
   const [isEditingValues, setIsEditingValues] = useState(false)
-  const [editTotal, setEditTotal] = useState(booking.total_amount || 0)
-  const [editDeposit, setEditDeposit] = useState(booking.deposit_amount || 0)
-  const [isEditTotalFocused, setIsEditTotalFocused] = useState(false)
-  const [isEditDepositFocused, setIsEditDepositFocused] = useState(false)
+  const [editTotal, setEditTotal] = useState(String(booking.total_amount ?? 0))
+  const [editDeposit, setEditDeposit] = useState(String(booking.deposit_amount ?? 0))
+
+  // Sem isto os campos ficam com o valor do primeiro carregamento e um "Salvar"
+  // posterior gravaria de volta um número velho por cima do atual.
+  useEffect(() => {
+    setEditTotal(String(booking.total_amount ?? 0))
+    setEditDeposit(String(booking.deposit_amount ?? 0))
+  }, [booking.total_amount, booking.deposit_amount])
 
   const formatCpf = (val: string) => {
     const digits = String(val || '').replace(/\D/g, '').slice(0, 11)
@@ -132,22 +139,33 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
   }
 
   const handleUpdateValues = async () => {
+    setActionMsg(null)
+    // Valida antes de gravar: sem isto um campo ilegível virava 0 silenciosamente.
+    const total = parseMoney(editTotal)
+    const sinal = parseMoney(editDeposit)
+    if (isNaN(total) || total < 0) {
+      setActionMsg({ text: 'Valor total inválido. Use por exemplo 2000 ou 2.000,00.', type: 'err' })
+      return
+    }
+    if (isNaN(sinal) || sinal < 0) {
+      setActionMsg({ text: 'Valor do sinal inválido. Use por exemplo 500 ou 500,00.', type: 'err' })
+      return
+    }
+
     setLoading(true)
     try {
       const { error } = await supabase
         .from('bookings')
-        .update({
-          total_amount: Number(editTotal),
-          deposit_amount: Number(editDeposit)
-        })
+        .update({ total_amount: total, deposit_amount: sinal })
         .eq('id', booking.id)
 
       if (error) throw error
 
       setIsEditingValues(false)
+      setActionMsg({ text: `Valores atualizados: total ${formatCurrency(total)}.`, type: 'ok' })
       router.refresh()
     } catch (err: any) {
-      alert(err.message || "Erro ao atualizar valores.")
+      setActionMsg({ text: err.message || 'Erro ao atualizar valores.', type: 'err' })
     } finally {
       setLoading(false)
     }
@@ -277,15 +295,16 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
 
   const adicionarRecebimento = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!(Number(novoPg.amount) > 0)) {
-      setActionMsg({ text: 'Informe um valor maior que zero.', type: 'err' })
+    const valor = parseMoney(novoPg.amount)
+    if (isNaN(valor) || valor <= 0) {
+      setActionMsg({ text: 'Informe um valor maior que zero (ex: 2000 ou 2.000,00).', type: 'err' })
       return
     }
     setLoading(true)
     const { error } = await supabase.from('booking_payments').insert([{
       tenant_id: tenantId,
       booking_id: booking.id,
-      amount: Number(novoPg.amount),
+      amount: valor,
       date: novoPg.date,
       method: novoPg.method || null,
       note: novoPg.note.trim() || null,
@@ -300,6 +319,20 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
     }
     setNovoPg({ amount: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', note: '' })
     setActionMsg({ text: 'Recebimento registrado.', type: 'ok' })
+    router.refresh()
+  }
+
+  /** Alinha o valor da reserva ao que foi de fato recebido. */
+  const ajustarTotalPeloRecebido = async () => {
+    setLoading(true)
+    setActionMsg(null)
+    const { error } = await supabase
+      .from('bookings')
+      .update({ total_amount: totalRecebido, deposit_amount: totalRecebido })
+      .eq('id', booking.id)
+    setLoading(false)
+    if (error) { setActionMsg({ text: error.message, type: 'err' }); return }
+    setActionMsg({ text: `Valor total corrigido para ${formatCurrency(totalRecebido)}.`, type: 'ok' })
     router.refresh()
   }
 
@@ -325,12 +358,17 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
         throw new Error("A data de check-out deve ser posterior à data de check-in.")
       }
 
+      const total = parseMoney(newTotalAmount)
+      if (isNaN(total) || total < 0) {
+        throw new Error("Preço total inválido. Use por exemplo 2000 ou 2.000,00.")
+      }
+
       const { error } = await supabase
         .from('bookings')
         .update({
           check_in: newCheckIn,
           check_out: newCheckOut,
-          total_amount: Number(newTotalAmount)
+          total_amount: total
         })
         .eq('id', booking.id)
 
@@ -742,24 +780,10 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
               </div>
               <div>
                 <label style={labelStyle}>Novo Preço Total (R$)</label>
-                <input
-                  type={isTotalFocused ? "number" : "text"}
-                  step={isTotalFocused ? "0.01" : undefined}
-                  required
-                  value={isTotalFocused ? newTotalAmount : formatCurrencyLocal(newTotalAmount)}
-                  onChange={(e) => setNewTotalAmount(e.target.value)}
-                  onFocus={() => setIsTotalFocused(true)}
-                  onBlur={() => setIsTotalFocused(false)}
-                  style={{
-                    backgroundColor: 'var(--bg)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '8px',
-                    padding: '10px 12px',
-                    color: 'var(--text)',
-                    fontSize: '14px',
-                    width: '100%',
-                    outline: 'none',
-                  }}
+                <MoneyInput
+                  value={String(newTotalAmount ?? '')}
+                  onChange={setNewTotalAmount}
+                  style={editInputStyle}
                 />
               </div>
               {errorMsg && (
@@ -882,7 +906,45 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
                 {formatCurrency(booking.total_amount - booking.deposit_amount)}
               </span>
             </div>
-            {estadiaTerminou && (
+
+            {/* Espelha o card Recebimentos, senão os dois blocos se contradizem */}
+            {payments.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
+                <span style={{ color: 'var(--muted)', fontSize: '14px' }}>
+                  Recebido de fato ({payments.length} lançamento{payments.length !== 1 ? 's' : ''})
+                </span>
+                <span style={{ color: 'var(--success)', fontSize: '15px', fontWeight: 700 }}>
+                  {formatCurrency(totalRecebido)}
+                </span>
+              </div>
+            )}
+
+            {/* Recebeu mais do que o valor cadastrado: quase sempre o total está desatualizado */}
+            {totalRecebido > Number(booking.total_amount || 0) && (
+              <div style={{
+                marginTop: '14px', padding: '12px 14px', borderRadius: '10px',
+                backgroundColor: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)',
+              }}>
+                <p style={{ color: 'var(--warning)', fontSize: '13px', margin: 0, lineHeight: 1.5, fontWeight: 500 }}>
+                  Você já recebeu {formatCurrency(totalRecebido)}, mas o valor total desta reserva está
+                  em {formatCurrency(Number(booking.total_amount || 0))}.
+                </p>
+                <button
+                  onClick={ajustarTotalPeloRecebido}
+                  disabled={loading}
+                  style={{
+                    marginTop: '10px', padding: '8px 14px', borderRadius: '8px',
+                    border: '1px solid rgba(245,158,11,0.5)', backgroundColor: 'transparent',
+                    color: 'var(--warning)', fontWeight: 600, fontSize: '13px',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Corrigir total para {formatCurrency(totalRecebido)}
+                </button>
+              </div>
+            )}
+
+            {estadiaTerminou && payments.length === 0 && (
               <p style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '10px', lineHeight: 1.5 }}>
                 A estadia terminou em {formatDate(booking.check_out)}, então o valor cheio de{' '}
                 <strong>{formatCurrency(booking.total_amount)}</strong> já conta como faturamento nos relatórios.
@@ -893,44 +955,15 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
               <label style={labelStyle}>Valor Total (R$)</label>
-              <input
-                type={isEditTotalFocused ? "number" : "text"}
-                value={isEditTotalFocused ? editTotal : formatCurrencyLocal(editTotal)}
-                onChange={e => setEditTotal(e.target.value)}
-                onFocus={() => setIsEditTotalFocused(true)}
-                onBlur={() => setIsEditTotalFocused(false)}
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  backgroundColor: 'var(--bg)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  color: 'var(--text)',
-                  fontSize: '14px',
-                }}
-              />
+              <MoneyInput value={editTotal} onChange={setEditTotal} disabled={loading} style={editInputStyle} />
             </div>
             <div>
               <label style={labelStyle}>Valor do Sinal (R$)</label>
-              <input
-                type={isEditDepositFocused ? "number" : "text"}
-                value={isEditDepositFocused ? editDeposit : formatCurrencyLocal(editDeposit)}
-                onChange={e => setEditDeposit(e.target.value)}
-                onFocus={() => setIsEditDepositFocused(true)}
-                onBlur={() => setIsEditDepositFocused(false)}
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  padding: '10px 14px',
-                  backgroundColor: 'var(--bg)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  color: 'var(--text)',
-                  fontSize: '14px',
-                }}
-              />
+              <MoneyInput value={editDeposit} onChange={setEditDeposit} disabled={loading} style={editInputStyle} />
             </div>
+            <p style={{ color: 'var(--muted)', fontSize: '12px', margin: 0 }}>
+              Pode digitar do jeito que preferir: 2000, 2.000 ou 2.000,00.
+            </p>
           </div>
         )}
       </div>
@@ -1021,12 +1054,10 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
             <form onSubmit={adicionarRecebimento} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', alignItems: 'end' }}>
               <div>
                 <label style={labelStyle}>Valor</label>
-                <input
-                  type={pgFocused ? 'number' : 'text'} step="0.01" min="0"
-                  value={pgFocused ? novoPg.amount : (novoPg.amount === '' ? '' : formatCurrency(Number(novoPg.amount)))}
-                  onChange={e => setNovoPg({ ...novoPg, amount: e.target.value })}
-                  onFocus={() => setPgFocused(true)} onBlur={() => setPgFocused(false)}
-                  placeholder="R$ 0,00" style={editInputStyle}
+                <MoneyInput
+                  value={novoPg.amount}
+                  onChange={v => setNovoPg({ ...novoPg, amount: v })}
+                  style={editInputStyle}
                 />
               </div>
               <div>

@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { useConfirm } from "@/components/ConfirmModal"
 import { Wallet, PlusCircle, Repeat, Trash2, Pencil } from "lucide-react"
+import { MoneyInput } from "@/components/ui/MoneyInput"
+import { parseMoney } from "@/lib/money"
 
 const GERAL = "__geral__"
 
@@ -77,28 +79,6 @@ const td = {
   borderBottom: '1px solid var(--border)',
 }
 
-/** Campo de dinheiro: mostra R$ formatado quando sem foco, número puro ao editar. */
-function MoneyInput({ value, onChange, disabled }: { value: string, onChange: (v: string) => void, disabled?: boolean }) {
-  const [focused, setFocused] = useState(false)
-  const display = focused
-    ? value
-    : value === '' ? '' : formatCurrency(Number(value) || 0)
-  return (
-    <input
-      type={focused ? 'number' : 'text'}
-      step={focused ? '0.01' : undefined}
-      min={focused ? '0' : undefined}
-      value={display}
-      disabled={disabled}
-      onChange={e => onChange(e.target.value)}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      placeholder="R$ 0,00"
-      style={input}
-    />
-  )
-}
-
 function mesAtual() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -147,7 +127,10 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
     e.preventDefault()
     setErro('')
     if (!gasto.description.trim()) return setErro('Descreva o gasto.')
-    if (!(Number(gasto.amount) > 0)) return setErro('Informe um valor maior que zero.')
+    const valorGasto = parseMoney(gasto.amount)
+    if (isNaN(valorGasto) || valorGasto <= 0) {
+      return setErro('Informe um valor maior que zero (ex: 250 ou 1.250,90).')
+    }
 
     setSaving(true)
     const payload = {
@@ -155,7 +138,7 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
       property_id: gasto.property_id === GERAL ? null : gasto.property_id,
       category_id: gasto.category_id || null,
       description: gasto.description.trim(),
-      amount: Number(gasto.amount),
+      amount: valorGasto,
       date: gasto.date,
     }
     const { error } = gasto.id
@@ -185,7 +168,10 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
     e.preventDefault()
     setErro('')
     if (!extra.description.trim()) return setErro('Descreva a receita (ex: Fondue de chocolate).')
-    if (!(Number(extra.amount) > 0)) return setErro('Informe um valor maior que zero.')
+    const valorExtra = parseMoney(extra.amount)
+    if (isNaN(valorExtra) || valorExtra <= 0) {
+      return setErro('Informe um valor maior que zero (ex: 120 ou 120,50).')
+    }
 
     const reserva = extra.booking_id ? bookings.find((b: any) => b.id === extra.booking_id) : null
     if (extra.booking_id && !reserva) return setErro('Reserva não encontrada.')
@@ -197,7 +183,7 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
       // Com reserva, a cabana vem dela; sem reserva, a dona escolhe (ou "Geral").
       property_id: reserva ? reserva.property_id : (extra.property_id === GERAL ? null : extra.property_id),
       description: extra.description.trim(),
-      amount: Number(extra.amount),
+      amount: valorExtra,
       date: extra.date,
     }
     const { error } = extra.id
@@ -230,7 +216,10 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
     e.preventDefault()
     setErro('')
     if (!fixa.description.trim()) return setErro('Descreva a despesa fixa.')
-    if (!(Number(fixa.amount) > 0)) return setErro('Informe um valor maior que zero.')
+    const valorFixa = parseMoney(fixa.amount)
+    if (isNaN(valorFixa) || valorFixa <= 0) {
+      return setErro('Informe um valor maior que zero (ex: 199 ou 199,90).')
+    }
 
     setSaving(true)
     const payload = {
@@ -238,7 +227,7 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
       property_id: fixa.property_id === GERAL ? null : fixa.property_id,
       category_id: fixa.category_id || null,
       description: fixa.description.trim(),
-      amount: Number(fixa.amount),
+      amount: valorFixa,
       day_of_month: Math.min(28, Math.max(1, Number(fixa.day_of_month) || 1)),
     }
     const { error } = fixa.id
@@ -359,7 +348,7 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
               </div>
               <div>
                 <label style={label}>Valor</label>
-                <MoneyInput value={gasto.amount} onChange={v => setGasto({ ...gasto, amount: v })} />
+                <MoneyInput value={gasto.amount} onChange={v => setGasto({ ...gasto, amount: v })} style={input} />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={label}>Descrição</label>
@@ -464,7 +453,7 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
               </div>
               <div>
                 <label style={label}>Valor</label>
-                <MoneyInput value={extra.amount} onChange={v => setExtra({ ...extra, amount: v })} />
+                <MoneyInput value={extra.amount} onChange={v => setExtra({ ...extra, amount: v })} style={input} />
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <label style={label}>O que foi vendido</label>
@@ -611,7 +600,7 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
               </div>
               <div>
                 <label style={label}>Valor por mês</label>
-                <MoneyInput value={fixa.amount} onChange={v => setFixa({ ...fixa, amount: v })} />
+                <MoneyInput value={fixa.amount} onChange={v => setFixa({ ...fixa, amount: v })} style={input} />
               </div>
               <div>
                 <label style={label}>Dia do vencimento</label>

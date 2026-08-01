@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { ArrowLeft } from "lucide-react"
 import { AriumDatePicker } from "@/components/ui/DatePicker"
+import { MoneyInput } from "@/components/ui/MoneyInput"
+import { parseMoney, parseMoneyOrZero } from "@/lib/money"
 import { parseISO, eachDayOfInterval, addDays, isAfter, startOfDay, parse } from "date-fns"
 import { useMemo } from "react"
 
@@ -132,8 +134,16 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
       }
 
       const guests = Math.max(1, Number(formData.guests_count || 1))
-      const totalAmount = formData.total_amount ? Number(formData.total_amount) : 0
-      const depositAmount = formData.deposit_amount ? Number(formData.deposit_amount) : 0
+      // parseMoneyOrZero aceita "2.000,00"; Number() devolveria NaN e gravaria 0.
+      const totalAmount = parseMoneyOrZero(formData.total_amount)
+      const depositAmount = parseMoneyOrZero(formData.deposit_amount)
+
+      if (formData.total_amount.trim() !== '' && isNaN(parseMoney(formData.total_amount))) {
+        throw new Error('Valor total inválido. Use por exemplo 2000 ou 2.000,00.')
+      }
+      if (formData.deposit_amount.trim() !== '' && isNaN(parseMoney(formData.deposit_amount))) {
+        throw new Error('Valor do sinal inválido. Use por exemplo 500 ou 500,00.')
+      }
       const guestPhone = formData.guest_phone || "00000000000"
       const guestName = formData.guest_name || "Hóspede (Reserva Manual)"
 
@@ -337,29 +347,19 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
 
           <div>
             <label style={labelStyle}>Valor total (R$)</label>
-            <input
-              type={isFocused.total_amount ? "number" : "text"}
-              step={isFocused.total_amount ? "0.01" : undefined}
-              name="total_amount"
-              value={isFocused.total_amount ? formData.total_amount : formatCurrency(formData.total_amount)}
-              onChange={handleChange}
-              onFocus={() => setIsFocused(prev => ({ ...prev, total_amount: true }))}
-              onBlur={() => setIsFocused(prev => ({ ...prev, total_amount: false }))}
-              style={inputStyle} placeholder="R$ 0,00"
+            <MoneyInput
+              value={formData.total_amount}
+              onChange={v => setFormData(prev => ({ ...prev, total_amount: v }))}
+              style={inputStyle}
             />
           </div>
 
           <div>
             <label style={labelStyle}>Valor do sinal (R$)</label>
-            <input
-              type={isFocused.deposit_amount ? "number" : "text"}
-              step={isFocused.deposit_amount ? "0.01" : undefined}
-              name="deposit_amount"
-              value={isFocused.deposit_amount ? formData.deposit_amount : formatCurrency(formData.deposit_amount)}
-              onChange={handleChange}
-              onFocus={() => setIsFocused(prev => ({ ...prev, deposit_amount: true }))}
-              onBlur={() => setIsFocused(prev => ({ ...prev, deposit_amount: false }))}
-              style={inputStyle} placeholder="R$ 0,00"
+            <MoneyInput
+              value={formData.deposit_amount}
+              onChange={v => setFormData(prev => ({ ...prev, deposit_amount: v }))}
+              style={inputStyle}
             />
           </div>
         </div>
