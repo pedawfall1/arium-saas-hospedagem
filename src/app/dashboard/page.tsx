@@ -5,6 +5,7 @@ import Link from "next/link"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { RecentBookingsTable } from "@/components/dashboard/RecentBookingsTable"
 import { RevenueChart } from "@/components/dashboard/RevenueChart"
+import { bookingRevenue } from "@/lib/financeiro"
 
 export const revalidate = 30
 
@@ -43,11 +44,16 @@ export default async function TenantDashboardPage() {
 
   const pendingBookings = bookings.filter(b => b.status === 'pending').length
 
-  const revenueThisMonth = bookings.filter(b => {
-    if (b.payment_status !== 'deposit_paid' && b.payment_status !== 'fully_paid') return false
-    const d = new Date(b.created_at)
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear
-  }).reduce((acc, b) => acc + (Number(b.deposit_amount) || 0), 0)
+  // Mesma regra de Relatórios: estadia terminada conta o valor cheio; antes
+  // disso, só o que já foi pago. Antes esta conta somava apenas o sinal e
+  // agrupava pela data de CRIAÇÃO da reserva, o que subestimava o mês.
+  const hojeStr = new Date().toISOString().slice(0, 10)
+  const inicioMes = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`
+  const fimMes = new Date(currentYear, currentMonth + 1, 0).toISOString().slice(0, 10)
+
+  const revenueThisMonth = bookings
+    .filter(b => b.check_in >= inicioMes && b.check_in <= fimMes)
+    .reduce((acc, b) => acc + bookingRevenue(b, hojeStr).realizado, 0)
 
   // next checkin
   const futureBookings = bookings.filter(b => b.status === 'confirmed' || b.status === 'checked_in')

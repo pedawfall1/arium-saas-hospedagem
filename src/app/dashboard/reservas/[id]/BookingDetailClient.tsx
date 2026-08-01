@@ -334,6 +334,11 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
     window.open(`https://wa.me/${phone}`, '_blank')
   }
 
+  // Estadia encerrada => o restante já foi recebido (mesma regra dos relatórios).
+  const estadiaTerminou =
+    booking.check_out <= new Date().toISOString().slice(0, 10) &&
+    ['confirmed', 'checked_in', 'completed'].includes(status)
+
   const checkIn = new Date(booking.check_in)
   const checkOut = new Date(booking.check_out)
   const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
@@ -806,11 +811,19 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
               </span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--muted)', fontSize: '14px' }}>Restante no check-in</span>
-              <span style={{ color: 'var(--muted)', fontSize: '15px' }}>
+              <span style={{ color: 'var(--muted)', fontSize: '14px' }}>
+                {estadiaTerminou ? 'Recebido na saída' : 'Restante no check-in'}
+              </span>
+              <span style={{ color: estadiaTerminou ? 'var(--success)' : 'var(--muted)', fontSize: '15px', fontWeight: estadiaTerminou ? 600 : 400 }}>
                 {formatCurrency(booking.total_amount - booking.deposit_amount)}
               </span>
             </div>
+            {estadiaTerminou && (
+              <p style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '10px', lineHeight: 1.5 }}>
+                A estadia terminou em {formatDate(booking.check_out)}, então o valor cheio de{' '}
+                <strong>{formatCurrency(booking.total_amount)}</strong> já conta como faturamento nos relatórios.
+              </p>
+            )}
           </>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

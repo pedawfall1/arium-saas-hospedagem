@@ -7,6 +7,7 @@ import { StatusBadge } from "@/components/ui/Badge"
 import { BookOpen, TrendingUp, Calendar } from "lucide-react"
 import { differenceInDays, parseISO, format } from "date-fns"
 import { HoldCountdown } from "@/components/ui/HoldCountdown"
+import { bookingRevenue } from "@/lib/financeiro"
 
 export function ReservasClient({ bookings, properties }: { bookings: any[], properties: any[] }) {
   const router = useRouter()
@@ -20,9 +21,11 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
   // Stats
   const totalReservas = bookings.length
   
+  // Mesma regra de Relatórios: reserva com check-out passado conta o valor
+  // cheio; as futuras contam só o que já foi pago.
+  const hojeStr = format(new Date(), 'yyyy-MM-dd')
   const receitaConfirmada = bookings
-    .filter(b => b.payment_status === "deposit_paid" || b.payment_status === "fully_paid")
-    .reduce((sum, b) => sum + (Number(b.deposit_amount) || 0), 0)
+    .reduce((sum, b) => sum + bookingRevenue(b, hojeStr).realizado, 0)
 
   const today = new Date()
   today.setHours(0,0,0,0)
