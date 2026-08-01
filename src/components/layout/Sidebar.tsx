@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { BookOpen, Calendar, Settings2, BarChart2, LayoutDashboard, Users, LogOut, MessageCircle } from 'lucide-react'
+import { BookOpen, Calendar, Settings2, BarChart2, LayoutDashboard, Users, LogOut, MessageCircle, Wallet } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const TENANT_LINKS = [
@@ -13,6 +13,7 @@ const TENANT_LINKS = [
   { href: '/dashboard/calendario',   label: 'Calendário',   Icon: Calendar },
   { href: '/dashboard/whatsapp',     label: 'WhatsApp',     Icon: MessageCircle },
   { href: '/dashboard/propriedades', label: 'Propriedades', Icon: Settings2 },
+  { href: '/dashboard/financeiro',   label: 'Financeiro',   Icon: Wallet },
   { href: '/dashboard/relatorios',   label: 'Relatórios',   Icon: BarChart2 },
 ]
 

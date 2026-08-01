@@ -21,6 +21,7 @@ export default async function RelatoriosPage() {
     .from('properties')
     .select('id, name')
     .eq('tenant_id', tenant.id)
+    .order('name')
 
   const propertyIds = (properties || []).map(p => p.id)
 
@@ -28,11 +29,25 @@ export default async function RelatoriosPage() {
   if (propertyIds.length > 0) {
     const { data } = await supabase
       .from('bookings')
-      .select('*')
+      .select('id, property_id, check_in, check_out, total_amount, deposit_amount, status, payment_status')
       .in('property_id', propertyIds)
-      
+
     bookings = data || []
   }
 
-  return <RelatoriosClient bookings={bookings} properties={properties || []} />
+  const [{ data: expenses }, { data: extras }, { data: categories }] = await Promise.all([
+    supabase.from('expenses').select('id, property_id, category_id, amount, date, description').eq('tenant_id', tenant.id),
+    supabase.from('extra_revenues').select('id, booking_id, property_id, amount, date, description').eq('tenant_id', tenant.id),
+    supabase.from('expense_categories').select('id, label').eq('tenant_id', tenant.id).order('position'),
+  ])
+
+  return (
+    <RelatoriosClient
+      bookings={bookings}
+      properties={properties || []}
+      expenses={expenses || []}
+      extras={extras || []}
+      categories={categories || []}
+    />
+  )
 }
