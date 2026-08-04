@@ -61,8 +61,11 @@ export function PrecosAvancados({ property }: { property: any }) {
     cleaning_fee: String(property.cleaning_fee ?? 0),
     pet_fee: String(property.pet_fee ?? 0),
     pet_fee_per_night: !!property.pet_fee_per_night,
-    extra_guest_fee: String(property.extra_guest_fee ?? 0),
-    extra_guest_from: property.extra_guest_from == null ? '' : String(property.extra_guest_from),
+    included_guests: String(property.included_guests ?? 2),
+    free_guest_age: String(property.free_guest_age ?? 2),
+    child_max_age: String(property.child_max_age ?? 12),
+    extra_child_fee: String(property.extra_child_fee ?? 0),
+    extra_adult_fee: String(property.extra_adult_fee ?? 0),
     deposit_percent: String(property.deposit_percent ?? 50),
     weekly_discount_percent: String(property.weekly_discount_percent ?? 0),
     monthly_discount_percent: String(property.monthly_discount_percent ?? 0),
@@ -110,8 +113,11 @@ export function PrecosAvancados({ property }: { property: any }) {
         cleaning_fee: obrigatorio(f.cleaning_fee, 'Taxa de limpeza'),
         pet_fee: obrigatorio(f.pet_fee, 'Taxa de pet'),
         pet_fee_per_night: f.pet_fee_per_night,
-        extra_guest_fee: obrigatorio(f.extra_guest_fee, 'Hóspede adicional'),
-        extra_guest_from: f.extra_guest_from.trim() === '' ? null : Math.max(1, Number(f.extra_guest_from)),
+        included_guests: Math.max(1, Number(f.included_guests) || 1),
+        free_guest_age: Math.min(17, Math.max(0, Number(f.free_guest_age) || 0)),
+        child_max_age: Math.min(17, Math.max(0, Number(f.child_max_age) || 0)),
+        extra_child_fee: obrigatorio(f.extra_child_fee, 'Criança adicional'),
+        extra_adult_fee: obrigatorio(f.extra_adult_fee, 'Adulto adicional'),
         deposit_percent: pct(f.deposit_percent, 'Sinal'),
         weekly_discount_percent: pct(f.weekly_discount_percent, 'Desconto semanal'),
         monthly_discount_percent: pct(f.monthly_discount_percent, 'Desconto mensal'),
@@ -226,15 +232,6 @@ export function PrecosAvancados({ property }: { property: any }) {
           <Campo label="Taxa de pet (R$)">
             {id => <MoneyInput id={id} value={f.pet_fee} onChange={v => set('pet_fee', v)} style={input} />}
           </Campo>
-          <Campo label="Hóspede adicional (R$/noite)">
-            {id => <MoneyInput id={id} value={f.extra_guest_fee} onChange={v => set('extra_guest_fee', v)} style={input} />}
-          </Campo>
-          <Campo label="Cobrar a partir do hóspede nº" hint="Ex.: 3 = a diária cobre 2 pessoas.">
-            {id => (
-              <input id={id} type="number" min="1" placeholder="não cobrar" value={f.extra_guest_from}
-                onChange={e => set('extra_guest_from', e.target.value)} style={input} />
-            )}
-          </Campo>
         </div>
         <label style={{ display: 'flex', alignItems: 'center', gap: '9px', marginTop: '14px', cursor: 'pointer' }}>
           <input type="checkbox" checked={f.pet_fee_per_night}
@@ -242,6 +239,45 @@ export function PrecosAvancados({ property }: { property: any }) {
             style={{ width: '16px', height: '16px' }} />
           <span style={{ color: 'var(--text)', fontSize: '14px' }}>Cobrar a taxa de pet por noite (em vez de uma vez por reserva)</span>
         </label>
+      </div>
+
+      {/* Hóspede adicional por idade */}
+      <div style={secao}>
+        <h3 style={tituloSecao}>Hóspede adicional por idade</h3>
+        <p style={ajuda}>
+          A diária cobre a ocupação base; cada pessoa a mais é cobrada por noite conforme a idade.
+          Deixe os valores em zero para não cobrar por pessoa.
+        </p>
+        <div style={grade}>
+          <Campo label="A diária cobre quantos hóspedes" hint="Acima disso, começa a cobrança por pessoa.">
+            {id => (
+              <input id={id} type="number" min="1" value={f.included_guests}
+                onChange={e => set('included_guests', e.target.value)} style={input} />
+            )}
+          </Campo>
+          <Campo label="Bebês até (anos)" hint="Nessa idade ou menos: não paga e não conta.">
+            {id => (
+              <input id={id} type="number" min="0" max="17" value={f.free_guest_age}
+                onChange={e => set('free_guest_age', e.target.value)} style={input} />
+            )}
+          </Campo>
+          <Campo label="Criança até (anos)" hint="Acima disso, cobra como adulto.">
+            {id => (
+              <input id={id} type="number" min="0" max="17" value={f.child_max_age}
+                onChange={e => set('child_max_age', e.target.value)} style={input} />
+            )}
+          </Campo>
+          <Campo label="Criança adicional (R$/noite)">
+            {id => <MoneyInput id={id} value={f.extra_child_fee} onChange={v => set('extra_child_fee', v)} style={input} />}
+          </Campo>
+          <Campo label="Adulto adicional (R$/noite)">
+            {id => <MoneyInput id={id} value={f.extra_adult_fee} onChange={v => set('extra_adult_fee', v)} style={input} />}
+          </Campo>
+        </div>
+        <p style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '12px', lineHeight: 1.5 }}>
+          Exemplo: diária cobre 2, bebês até 2, criança até 12, criança R$ 100, adulto R$ 200.
+          Um casal com 1 filho de 8 anos paga R$ 100 a mais por noite; um bebê de 1 ano não paga.
+        </p>
       </div>
 
       {/* Sinal e descontos */}
