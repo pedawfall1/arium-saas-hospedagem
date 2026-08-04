@@ -28,17 +28,25 @@ export default async function PropriedadesPage() {
   let rules: any[] = []
   let blocks: any[] = []
   let holidays: any[] = []
+  let dailyRates: any[] = []
 
   if (propertyIds.length > 0) {
-    const [{ data: rulesData }, { data: blocksData }, { data: holidaysData }] = await Promise.all([
+    const [{ data: rulesData }, { data: blocksData }, { data: holidaysData }, { data: dailyData }] = await Promise.all([
       supabase.from('pricing_rules').select('*').in('property_id', propertyIds),
       supabase.from('blocked_dates').select('*').in('property_id', propertyIds),
-      supabase.from('holidays').select('*').in('property_id', propertyIds).order('date_from')
+      supabase.from('holidays').select('*').in('property_id', propertyIds).order('date_from'),
+      supabase.from('daily_rates').select('*').in('property_id', propertyIds)
     ])
     rules = rulesData || []
     blocks = blocksData || []
     holidays = holidaysData || []
+    dailyRates = dailyData || []
   }
+
+  const [{ data: extras }, { data: pacotes }] = await Promise.all([
+    supabase.from('extras').select('*').eq('tenant_id', tenant.id).order('position').order('label'),
+    supabase.from('romantic_packages').select('*').eq('tenant_id', tenant.id).order('position').order('label'),
+  ])
 
   return (
     <PropriedadesClient
@@ -47,6 +55,10 @@ export default async function PropriedadesPage() {
       initialRules={rules}
       initialBlocks={blocks}
       initialHolidays={holidays}
+      initialDailyRates={dailyRates}
+      tenantId={tenant.id}
+      initialExtras={extras || []}
+      initialPacotes={pacotes || []}
     />
   )
 }

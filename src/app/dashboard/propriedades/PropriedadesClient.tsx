@@ -14,6 +14,8 @@ import { parseMoney } from "@/lib/money"
 import { executar } from "@/lib/salvar"
 import { BotaoBackup } from "@/components/BotaoBackup"
 import { PrecosAvancados } from "@/components/propriedades/PrecosAvancados"
+import { CalendarioPrecos } from "@/components/propriedades/CalendarioPrecos"
+import { ExtrasEPacotes } from "@/components/propriedades/ExtrasEPacotes"
 
 const precoInputStyle = {
   backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px',
@@ -76,7 +78,7 @@ function MiniCalendar({ propertyId, blocks, onToggleBlock }: any) {
   )
 }
 
-export function PropriedadesClient({ initialProperties, tenantName, initialRules, initialBlocks, initialHolidays }: any) {
+export function PropriedadesClient({ initialProperties, tenantName, initialRules, initialBlocks, initialHolidays, initialDailyRates = [], tenantId, initialExtras = [], initialPacotes = [] }: any) {
   const supabase = createClient()
   const router = useRouter()
   const [properties, setProperties] = useState(initialProperties)
@@ -481,6 +483,13 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
 
               <PrecosAvancados property={activeProp} />
 
+              <CalendarioPrecos
+                property={activeProp}
+                dailyRates={initialDailyRates}
+                rules={rules}
+                holidays={holidays}
+              />
+
               {/* SECTION 2: Regras Especiais e Feriados */}
               <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '28px', marginBottom: '20px' }}>
                 <div style={{ marginBottom: '20px' }}>
@@ -673,6 +682,8 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
           )}
         </div>
       )}
+
+      <ExtrasEPacotes tenantId={tenantId} extras={initialExtras} pacotes={initialPacotes} />
 
       <div style={{ marginTop: '32px' }}>
         <BotaoBackup />
