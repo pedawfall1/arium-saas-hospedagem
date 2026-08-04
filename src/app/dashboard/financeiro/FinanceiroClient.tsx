@@ -8,6 +8,7 @@ import { useConfirm } from "@/components/ConfirmModal"
 import { Wallet, PlusCircle, Repeat, Trash2, Pencil } from "lucide-react"
 import { MoneyInput } from "@/components/ui/MoneyInput"
 import { parseMoney } from "@/lib/money"
+import { executar } from "@/lib/salvar"
 
 const GERAL = "__geral__"
 
@@ -152,7 +153,8 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
 
   const apagarGasto = async (row: any) => {
     if (!(await confirm('Apagar gasto?', `"${row.description}" — ${formatCurrency(Number(row.amount))}. Isso não pode ser desfeito.`))) return
-    await supabase.from('expenses').delete().eq('id', row.id)
+    const r = await executar(supabase.from('expenses').delete().eq('id', row.id))
+    if (!r.ok) return setErro(r.erro)
     router.refresh()
   }
 
@@ -197,7 +199,8 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
 
   const apagarExtra = async (row: any) => {
     if (!(await confirm('Apagar receita extra?', `"${row.description}" — ${formatCurrency(Number(row.amount))}.`))) return
-    await supabase.from('extra_revenues').delete().eq('id', row.id)
+    const r = await executar(supabase.from('extra_revenues').delete().eq('id', row.id))
+    if (!r.ok) return setErro(r.erro)
     router.refresh()
   }
 
@@ -240,7 +243,9 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
   }
 
   const alternarFixa = async (row: any) => {
-    await supabase.from('recurring_expenses').update({ active: !row.active }).eq('id', row.id)
+    setErro('')
+    const r = await executar(supabase.from('recurring_expenses').update({ active: !row.active }).eq('id', row.id))
+    if (!r.ok) return setErro(r.erro)
     router.refresh()
   }
 
@@ -249,7 +254,8 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
       'Apagar despesa fixa?',
       `"${row.description}" deixa de ser lançada nos próximos meses. Os lançamentos já feitos continuam no histórico.`
     ))) return
-    await supabase.from('recurring_expenses').delete().eq('id', row.id)
+    const r = await executar(supabase.from('recurring_expenses').delete().eq('id', row.id))
+    if (!r.ok) return setErro(r.erro)
     router.refresh()
   }
 
@@ -365,16 +371,16 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
           </form>
 
           <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
+            <div className="tabela-resp-wrap">
+              <table className="tabela-resp" style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
                 <thead><tr>
                   {['Data', 'Descrição', 'Cabana', 'Categoria', 'Valor', ''].map((c, i) => <th key={i} style={th}>{c}</th>)}
                 </tr></thead>
                 <tbody>
                   {gastosMes.map((g: any) => (
                     <tr key={g.id}>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{formatDate(g.date)}</td>
-                      <td style={td}>
+                      <td data-col="Data" style={{ ...td, whiteSpace: 'nowrap' }}>{formatDate(g.date)}</td>
+                      <td data-col="Descrição" style={td}>
                         {g.description}
                         {g.recurring_id && (
                           <span title="Lançada automaticamente pela despesa fixa" style={{ marginLeft: '8px', fontSize: '11px', color: 'var(--info)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '4px', padding: '1px 6px', whiteSpace: 'nowrap' }}>
@@ -382,10 +388,10 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
                           </span>
                         )}
                       </td>
-                      <td style={{ ...td, color: g.property_id ? 'var(--text)' : 'var(--muted)' }}>{nomeCabana(g.property_id)}</td>
-                      <td style={{ ...td, color: 'var(--muted)' }}>{nomeCategoria(g.category_id)}</td>
-                      <td style={{ ...td, color: 'var(--danger)', fontWeight: 600, whiteSpace: 'nowrap' }}>{formatCurrency(Number(g.amount))}</td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                      <td data-col="Cabana" style={{ ...td, color: g.property_id ? 'var(--text)' : 'var(--muted)' }}>{nomeCabana(g.property_id)}</td>
+                      <td data-col="Categoria" style={{ ...td, color: 'var(--muted)' }}>{nomeCategoria(g.category_id)}</td>
+                      <td data-col="Valor" style={{ ...td, color: 'var(--danger)', fontWeight: 600, whiteSpace: 'nowrap' }}>{formatCurrency(Number(g.amount))}</td>
+                      <td data-col="" style={{ ...td, whiteSpace: 'nowrap' }}>
                         <button onClick={() => setGasto({
                           id: g.id, property_id: g.property_id ?? GERAL, category_id: g.category_id ?? '',
                           description: g.description, amount: String(g.amount), date: g.date,
@@ -470,8 +476,8 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
           </form>
 
           <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
+            <div className="tabela-resp-wrap">
+              <table className="tabela-resp" style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
                 <thead><tr>
                   {['Data', 'Descrição', 'Hóspede', 'Cabana', 'Valor', ''].map((c, i) => <th key={i} style={th}>{c}</th>)}
                 </tr></thead>
@@ -480,14 +486,14 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
                     const b = bookings.find((x: any) => x.id === e.booking_id)
                     return (
                       <tr key={e.id}>
-                        <td style={{ ...td, whiteSpace: 'nowrap' }}>{formatDate(e.date)}</td>
-                        <td style={td}>{e.description}</td>
-                        <td style={{ ...td, color: 'var(--muted)' }}>
+                        <td data-col="Data" style={{ ...td, whiteSpace: 'nowrap' }}>{formatDate(e.date)}</td>
+                        <td data-col="Descrição" style={td}>{e.description}</td>
+                        <td data-col="Hóspede" style={{ ...td, color: 'var(--muted)' }}>
                           {b?.guest_name ?? <span style={{ fontStyle: 'italic' }}>venda avulsa</span>}
                         </td>
-                        <td style={td}>{nomeCabana(e.property_id)}</td>
-                        <td style={{ ...td, color: 'var(--success)', fontWeight: 600, whiteSpace: 'nowrap' }}>{formatCurrency(Number(e.amount))}</td>
-                        <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                        <td data-col="Cabana" style={td}>{nomeCabana(e.property_id)}</td>
+                        <td data-col="Valor" style={{ ...td, color: 'var(--success)', fontWeight: 600, whiteSpace: 'nowrap' }}>{formatCurrency(Number(e.amount))}</td>
+                        <td data-col="" style={{ ...td, whiteSpace: 'nowrap' }}>
                           <button onClick={() => setExtra({
                             id: e.id, booking_id: e.booking_id ?? '', property_id: e.property_id ?? GERAL,
                             description: e.description, amount: String(e.amount), date: e.date,
@@ -530,8 +536,8 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
               Aqui é só a visão consolidada do mês.
             </p>
           </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
+          <div className="tabela-resp-wrap">
+            <table className="tabela-resp" style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
               <thead><tr>
                 {['Data', 'Hóspede', 'Cabana', 'Forma', 'Observação', 'Valor'].map((c, i) => <th key={i} style={th}>{c}</th>)}
               </tr></thead>
@@ -540,18 +546,18 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
                   const b = bookings.find((x: any) => x.id === p.booking_id)
                   return (
                     <tr key={p.id}>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>{formatDate(p.date)}</td>
-                      <td style={td}>
+                      <td data-col="Data" style={{ ...td, whiteSpace: 'nowrap' }}>{formatDate(p.date)}</td>
+                      <td data-col="Hóspede" style={td}>
                         {b ? (
                           <a href={`/dashboard/reservas/${p.booking_id}`} style={{ color: 'var(--purple)', textDecoration: 'none', fontWeight: 500 }}>
                             {b.guest_name}
                           </a>
                         ) : '—'}
                       </td>
-                      <td style={{ ...td, color: 'var(--muted)' }}>{b ? nomeCabana(b.property_id) : '—'}</td>
-                      <td style={{ ...td, color: 'var(--muted)' }}>{p.method ?? '—'}</td>
-                      <td style={{ ...td, color: 'var(--muted)' }}>{p.note ?? '—'}</td>
-                      <td style={{ ...td, color: 'var(--success)', fontWeight: 600, whiteSpace: 'nowrap' }}>{formatCurrency(Number(p.amount))}</td>
+                      <td data-col="Cabana" style={{ ...td, color: 'var(--muted)' }}>{b ? nomeCabana(b.property_id) : '—'}</td>
+                      <td data-col="Forma" style={{ ...td, color: 'var(--muted)' }}>{p.method ?? '—'}</td>
+                      <td data-col="Observação" style={{ ...td, color: 'var(--muted)' }}>{p.note ?? '—'}</td>
+                      <td data-col="Valor" style={{ ...td, color: 'var(--success)', fontWeight: 600, whiteSpace: 'nowrap' }}>{formatCurrency(Number(p.amount))}</td>
                     </tr>
                   )
                 })}
@@ -622,20 +628,20 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
           </form>
 
           <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
+            <div className="tabela-resp-wrap">
+              <table className="tabela-resp" style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
                 <thead><tr>
                   {['Descrição', 'Cabana', 'Categoria', 'Dia', 'Valor', 'Ativa', ''].map((c, i) => <th key={i} style={th}>{c}</th>)}
                 </tr></thead>
                 <tbody>
                   {recurring.map((r: any) => (
                     <tr key={r.id} style={{ opacity: r.active ? 1 : 0.5 }}>
-                      <td style={td}>{r.description}</td>
-                      <td style={{ ...td, color: r.property_id ? 'var(--text)' : 'var(--muted)' }}>{nomeCabana(r.property_id)}</td>
-                      <td style={{ ...td, color: 'var(--muted)' }}>{nomeCategoria(r.category_id)}</td>
-                      <td style={{ ...td, color: 'var(--muted)' }}>dia {r.day_of_month}</td>
-                      <td style={{ ...td, color: 'var(--danger)', fontWeight: 600, whiteSpace: 'nowrap' }}>{formatCurrency(Number(r.amount))}</td>
-                      <td style={td}>
+                      <td data-col="Descrição" style={td}>{r.description}</td>
+                      <td data-col="Cabana" style={{ ...td, color: r.property_id ? 'var(--text)' : 'var(--muted)' }}>{nomeCabana(r.property_id)}</td>
+                      <td data-col="Categoria" style={{ ...td, color: 'var(--muted)' }}>{nomeCategoria(r.category_id)}</td>
+                      <td data-col="Vencimento" style={{ ...td, color: 'var(--muted)' }}>dia {r.day_of_month}</td>
+                      <td data-col="Valor" style={{ ...td, color: 'var(--danger)', fontWeight: 600, whiteSpace: 'nowrap' }}>{formatCurrency(Number(r.amount))}</td>
+                      <td data-col="Status" style={td}>
                         <button onClick={() => alternarFixa(r)} style={{
                           background: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600,
                           padding: '3px 10px', borderRadius: '999px',
@@ -646,7 +652,7 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
                           {r.active ? 'Ativa' : 'Pausada'}
                         </button>
                       </td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>
+                      <td data-col="" style={{ ...td, whiteSpace: 'nowrap' }}>
                         <button onClick={() => setFixa({
                           id: r.id, property_id: r.property_id ?? GERAL, category_id: r.category_id ?? '',
                           description: r.description, amount: String(r.amount), day_of_month: String(r.day_of_month),

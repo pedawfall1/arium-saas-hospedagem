@@ -49,6 +49,39 @@
     margin: 0;
   }
 
+  /* ===== FOCO VISÍVEL =====
+     Vários campos usam outline:none inline para tirar a borda azul do
+     navegador, e nada era colocado no lugar: quem navega por teclado não
+     enxergava onde estava. Esta regra devolve um indicador na cor da marca.
+     :focus-visible só aparece na navegação por teclado, então o clique de
+     mouse continua limpo. */
+  :focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  button:focus-visible,
+  a:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid var(--purple) !important;
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* Clicar no rótulo leva o cursor ao campo — gesto que todo mundo faz. */
+  label {
+    cursor: pointer;
+  }
+
+  /* Respeita quem pediu menos animação no sistema. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
   html,
   body {
     max-width: 100vw;
@@ -697,6 +730,67 @@ body::before {
 }
 @media (min-width: 768px) {
   .md-only-hide { display: none !important; }
+}
+
+/* ===== TABELA QUE VIRA CARTÃO NO CELULAR =====
+   Financeiro e Relatórios nasceram só com tabelas de 700-780px, o que obrigava
+   a arrastar de lado no celular — justamente as telas do dia a dia. Marque a
+   tabela com .tabela-resp e cada <td> com data-col="Rótulo": no celular as
+   linhas viram cartões empilhados, com o rótulo ao lado do valor. */
+.tabela-resp-wrap { overflow-x: auto; }
+
+@media (max-width: 767px) {
+  .tabela-resp-wrap { overflow-x: visible; }
+
+  .tabela-resp,
+  .tabela-resp tbody,
+  .tabela-resp tfoot,
+  .tabela-resp tr,
+  .tabela-resp td {
+    display: block;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .tabela-resp thead { display: none; }
+
+  .tabela-resp tr {
+    background-color: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 6px 14px;
+    margin-bottom: 10px;
+  }
+
+  .tabela-resp td {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    padding: 9px 0 !important;
+    border-bottom: 1px solid var(--border) !important;
+    white-space: normal !important;
+    text-align: right;
+  }
+  .tabela-resp tr td:last-child { border-bottom: 0 !important; }
+
+  /* Rótulo da coluna à esquerda de cada valor */
+  .tabela-resp td::before {
+    content: attr(data-col);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    text-align: left;
+    flex-shrink: 0;
+  }
+  /* Célula sem rótulo (ex.: botões de ação) ocupa a linha toda */
+  .tabela-resp td[data-col=""]::before { content: none; }
+  .tabela-resp td[data-col=""] { justify-content: flex-end; }
+
+  .tabela-resp tfoot tr {
+    background-color: var(--purple-dim);
+    border-color: var(--purple);
+  }
 }
 
 /* ===== BOOKINGS MOBILE CARDS ===== */

@@ -30,8 +30,11 @@ export function ReservasClient({ bookings, properties }: { bookings: any[], prop
   const today = new Date()
   today.setHours(0,0,0,0)
   
+  // "deposit_paid" é payment_status, nunca aparece em status — a condição
+  // antiga nunca era verdadeira e ainda escondia quem já fez check-in, que é
+  // justamente a hóspede que está na cabana agora.
   const futureConfirmed = bookings
-    .filter(b => b.status === "confirmed" || b.status === "deposit_paid") 
+    .filter(b => b.status === "confirmed" || b.status === "checked_in")
     .filter(b => {
       const d = parseISO(b.check_in)
       return d >= today

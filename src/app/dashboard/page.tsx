@@ -28,15 +28,32 @@ export default async function TenantDashboardPage() {
 
   const propertyIds = (properties || []).map(p => p.id)
 
+  // O painel mostra o gráfico de 6 meses, a receita do mês e as 5 últimas
+  // reservas — nada disso precisa do histórico completo. A janela de 13 meses
+  // cobre o gráfico com folga e evita puxar anos de dados a cada abertura.
+  const desde = new Date()
+  desde.setMonth(desde.getMonth() - 13)
+  const desdeStr = desde.toISOString().slice(0, 10)
+
   let bookings: any[] = []
   if (propertyIds.length > 0) {
     const { data } = await supabase
       .from('bookings')
       .select('*, properties(name)')
       .in('property_id', propertyIds)
-      .order('check_in', { ascending: false })
+      .gte('check_in', desdeStr)
+      // Ordenado pela criação: "Reservas recentes" é o que acabou de entrar.
+      // Antes ordenava por check_in, então uma reserva feita hoje para a semana
+      // que vem ficava atrás de qualquer estadia marcada para meses à frente e
+      // nunca aparecia no painel.
+      .order('created_at', { ascending: false })
     bookings = data || []
   }
+
+  const { data: payments } = await supabase
+    .from('booking_payments')
+    .select('id, booking_id, amount, date')
+    .eq('tenant_id', tenant.id)
 
   const now = new Date()
   const currentMonth = now.getMonth()
@@ -53,7 +70,7 @@ export default async function TenantDashboardPage() {
 
   const revenueThisMonth = bookings
     .filter(b => b.check_in >= inicioMes && b.check_in <= fimMes)
-    .reduce((acc, b) => acc + bookingRevenue(b, hojeStr).realizado, 0)
+    .reduce((acc, b) => acc + bookingRevenue(b, hojeStr, (payments || []).filter(p => p.booking_id === b.id)).realizado, 0)
 
   // next checkin
   const futureBookings = bookings.filter(b => b.status === 'confirmed' || b.status === 'checked_in')
@@ -180,7 +197,7 @@ export default async function TenantDashboardPage() {
       {/* Revenue Chart Section */}
       <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '24px', marginBottom: '32px' }}>
         <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 700, marginBottom: '24px' }}>Receita dos últimos 6 meses</h2>
-        <RevenueChart bookings={bookings} />
+        <RevenueChart bookings={bookings} payments={payments || []} />
       </div>
 
       {/* Two column layout */}

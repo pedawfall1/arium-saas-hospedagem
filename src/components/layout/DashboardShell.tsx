@@ -9,8 +9,12 @@ export default function DashboardShell({ tenant, children }: { tenant: any, chil
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [theme, setTheme] = useState<'dark'|'light'>('dark')
 
+  // O atributo já foi aplicado pelo script do <head> (layout.tsx) antes da
+  // primeira pintura. Aqui só alinhamos o estado do botão com o que está lá.
   useEffect(() => {
-    const saved = localStorage.getItem('theme') || 'dark'
+    const saved = document.documentElement.getAttribute('data-theme')
+      || localStorage.getItem('theme')
+      || 'dark'
     setTheme(saved as 'dark'|'light')
     document.documentElement.setAttribute('data-theme', saved)
   }, [])

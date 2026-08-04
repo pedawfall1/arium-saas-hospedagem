@@ -11,6 +11,7 @@ import { ptBR } from "date-fns/locale"
 import { useConfirm } from "@/components/ConfirmModal"
 import { MoneyInput } from "@/components/ui/MoneyInput"
 import { parseMoney } from "@/lib/money"
+import { executar } from "@/lib/salvar"
 
 const precoInputStyle = {
   backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px',
@@ -183,7 +184,8 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
 
   const handleDeleteRule = async (id: string) => {
     if (!(await confirm("Excluir regra", "Remover esta regra especial?"))) return
-    await supabase.from('pricing_rules').delete().eq('id', id)
+    const r = await executar(supabase.from('pricing_rules').delete().eq('id', id))
+    if (!r.ok) { setPricesMsg({ text: r.erro, type: 'err' }); return }
     setRules(rules.filter((r: any) => r.id !== id))
   }
 
@@ -277,7 +279,8 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
 
   const handleDeleteHoliday = async (id: string) => {
     if (!(await confirm("Excluir feriado", "Remover este feriado?"))) return
-    await supabase.from('holidays').delete().eq('id', id)
+    const r = await executar(supabase.from('holidays').delete().eq('id', id))
+    if (!r.ok) { setPricesMsg({ text: r.erro, type: 'err' }); return }
     setHolidays(holidays.filter((h: any) => h.id !== id))
   }
 

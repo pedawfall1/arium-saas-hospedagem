@@ -11,6 +11,7 @@ import { formatDate } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useConfirm } from "@/components/ConfirmModal"
+import { executar } from "@/lib/salvar"
 export function CalendarioClient({ properties, bookings, allBookings, blockedDates, holidays, tenantName }: any) {
   // Add CSS for mobile-only button
   useEffect(() => {
@@ -201,7 +202,8 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
   const handleUnblock = async (id: string) => {
     if (!(await confirm('Desbloquear data', 'Deseja realmente desbloquear esta data?'))) return
     setLoading(true)
-    await supabase.from('blocked_dates').delete().eq('id', id)
+    const r = await executar(supabase.from('blocked_dates').delete().eq('id', id))
+    if (!r.ok) { setLoading(false); alert(r.erro); return }
     setLoading(false)
     setSelectedDay(null)
     router.refresh()

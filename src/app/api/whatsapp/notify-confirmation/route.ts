@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { permitir, respostaLimite } from '@/lib/rateLimit'
 
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || 'https://api.arium-ia.cloud'
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY
@@ -60,6 +61,9 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    // Envio de WhatsApp custa e vai para fora: limite por usuário, não por IP.
+    if (!(await permitir(`whatsapp:${user.id}`, 20, 60))) return respostaLimite()
 
     const body = await req.json().catch(() => ({}))
     const bookingId = body.bookingId

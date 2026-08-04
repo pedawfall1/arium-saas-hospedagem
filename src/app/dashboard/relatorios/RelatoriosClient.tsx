@@ -242,8 +242,8 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
             Gastos gerais são rateados proporcionalmente ao faturamento de cada cabana.
           </p>
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '780px' }}>
+        <div className="tabela-resp-wrap">
+          <table className="tabela-resp" style={{ width: '100%', borderCollapse: 'collapse', minWidth: '780px' }}>
             <thead><tr>
               {['Cabana', 'Reservas', 'Diárias', 'Extras', 'Receita', 'Gastos', 'Lucro líquido', 'Margem'].map(c => (
                 <th key={c} style={th}>{c}</th>
@@ -254,12 +254,12 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
                 const margem = r.receita > 0 ? (r.liquido / r.receita) * 100 : 0
                 return (
                   <tr key={r.propertyId} style={{ backgroundColor: cabana === r.propertyId ? 'var(--purple-dim)' : 'transparent' }}>
-                    <td style={{ ...td, fontWeight: 600 }}>{r.name}</td>
-                    <td style={{ ...td, color: 'var(--muted)' }}>{r.reservas}</td>
-                    <td style={td}>{formatCurrency(r.diarias)}</td>
-                    <td style={{ ...td, color: r.extras > 0 ? 'var(--success)' : 'var(--muted)' }}>{formatCurrency(r.extras)}</td>
-                    <td style={{ ...td, fontWeight: 600 }}>{formatCurrency(r.receita)}</td>
-                    <td style={{ ...td, color: 'var(--danger)' }}>
+                    <td data-col="Cabana" style={{ ...td, fontWeight: 600 }}>{r.name}</td>
+                    <td data-col="Reservas" style={{ ...td, color: 'var(--muted)' }}>{r.reservas}</td>
+                    <td data-col="Diárias" style={td}>{formatCurrency(r.diarias)}</td>
+                    <td data-col="Extras" style={{ ...td, color: r.extras > 0 ? 'var(--success)' : 'var(--muted)' }}>{formatCurrency(r.extras)}</td>
+                    <td data-col="Receita" style={{ ...td, fontWeight: 600 }}>{formatCurrency(r.receita)}</td>
+                    <td data-col="Gastos" style={{ ...td, color: 'var(--danger)' }}>
                       {formatCurrency(r.gastos)}
                       {r.gastosRateados > 0 && (
                         <span style={{ color: 'var(--muted)', fontSize: '12px', display: 'block' }}>
@@ -267,10 +267,10 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
                         </span>
                       )}
                     </td>
-                    <td style={{ ...td, fontWeight: 800, color: r.liquido >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                    <td data-col="Lucro líquido" style={{ ...td, fontWeight: 800, color: r.liquido >= 0 ? 'var(--success)' : 'var(--danger)' }}>
                       {formatCurrency(r.liquido)}
                     </td>
-                    <td style={{ ...td, color: 'var(--muted)' }}>{margem.toFixed(1)}%</td>
+                    <td data-col="Margem" style={{ ...td, color: 'var(--muted)' }}>{margem.toFixed(1)}%</td>
                   </tr>
                 )
               })}
@@ -282,16 +282,16 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
             </tbody>
             {fin.porCabana.length > 1 && (
               <tfoot><tr>
-                <td style={{ ...td, fontWeight: 700, borderBottom: 'none' }}>Total</td>
-                <td style={{ ...td, borderBottom: 'none', color: 'var(--muted)' }}>{fin.total.reservas}</td>
-                <td style={{ ...td, borderBottom: 'none' }}>{formatCurrency(fin.total.diarias)}</td>
-                <td style={{ ...td, borderBottom: 'none' }}>{formatCurrency(fin.total.extras)}</td>
-                <td style={{ ...td, borderBottom: 'none', fontWeight: 700 }}>{formatCurrency(fin.total.receita)}</td>
-                <td style={{ ...td, borderBottom: 'none', color: 'var(--danger)' }}>{formatCurrency(fin.total.gastos)}</td>
-                <td style={{ ...td, borderBottom: 'none', fontWeight: 800, color: fin.total.liquido >= 0 ? 'var(--success)' : 'var(--danger)' }}>
+                <td data-col="" style={{ ...td, fontWeight: 700, borderBottom: 'none' }}>Total</td>
+                <td data-col="Reservas" style={{ ...td, borderBottom: 'none', color: 'var(--muted)' }}>{fin.total.reservas}</td>
+                <td data-col="Diárias" style={{ ...td, borderBottom: 'none' }}>{formatCurrency(fin.total.diarias)}</td>
+                <td data-col="Extras" style={{ ...td, borderBottom: 'none' }}>{formatCurrency(fin.total.extras)}</td>
+                <td data-col="Receita" style={{ ...td, borderBottom: 'none', fontWeight: 700 }}>{formatCurrency(fin.total.receita)}</td>
+                <td data-col="Gastos" style={{ ...td, borderBottom: 'none', color: 'var(--danger)' }}>{formatCurrency(fin.total.gastos)}</td>
+                <td data-col="Lucro líquido" style={{ ...td, borderBottom: 'none', fontWeight: 800, color: fin.total.liquido >= 0 ? 'var(--success)' : 'var(--danger)' }}>
                   {formatCurrency(fin.total.liquido)}
                 </td>
-                <td style={{ ...td, borderBottom: 'none', color: 'var(--muted)' }}>{fin.total.margem.toFixed(1)}%</td>
+                <td data-col="Margem" style={{ ...td, borderBottom: 'none', color: 'var(--muted)' }}>{fin.total.margem.toFixed(1)}%</td>
               </tr></tfoot>
             )}
           </table>

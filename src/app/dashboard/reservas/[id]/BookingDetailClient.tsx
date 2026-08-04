@@ -15,6 +15,8 @@ import { HoldNotice } from "@/components/ui/HoldCountdown"
 import { HOLD_HOURS } from "@/lib/hold"
 import { MoneyInput } from "@/components/ui/MoneyInput"
 import { parseMoney } from "@/lib/money"
+import { executar } from "@/lib/salvar"
+import { BOOKING_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS, bookingStatusLabel, paymentStatusLabel } from "@/lib/statuses"
 
 const cardStyle = {
   backgroundColor: 'var(--surface)',
@@ -70,6 +72,17 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
     setNewCheckOut(booking.check_out)
     setNewTotalAmount(booking.total_amount)
   }, [booking.check_in, booking.check_out, booking.total_amount])
+
+  // Depois de um router.refresh() o servidor manda os valores atuais; sem
+  // ressincronizar, a tela continuava exibindo o que foi carregado na abertura.
+  useEffect(() => {
+    setStatus(booking.status)
+    setPaymentStatus(booking.payment_status)
+  }, [booking.status, booking.payment_status])
+
+  useEffect(() => {
+    setNotes(booking.notes || "")
+  }, [booking.notes])
 
   const [isTotalFocused, setIsTotalFocused] = useState(false)
 
@@ -339,8 +352,9 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
   const apagarRecebimento = async (p: any) => {
     if (!(await confirm('Apagar recebimento?', `${formatCurrency(Number(p.amount))} de ${formatDate(p.date)}.`))) return
     setLoading(true)
-    await supabase.from('booking_payments').delete().eq('id', p.id)
+    const r = await executar(supabase.from('booking_payments').delete().eq('id', p.id))
     setLoading(false)
+    if (!r.ok) { setActionMsg({ text: r.erro, type: 'err' }); return }
     router.refresh()
   }
 
@@ -389,10 +403,24 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
       'A reserva vai para a aba de Excluídas e as datas ficam livres no site imediatamente. Os dados de contato são mantidos.'
     ))) return
     setLoading(true)
-    await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id)
+    setActionMsg(null)
+    const r = await executar(supabase.from('bookings').update({ status: 'cancelled' }).eq('id', booking.id))
+    if (!r.ok) {
+      setLoading(false)
+      setActionMsg({ text: r.erro, type: 'err' })
+      return
+    }
     // Reservas manuais também gravam bloqueios em blocked_dates: sem remover
     // estes, as datas continuariam presas mesmo com a reserva cancelada.
-    await supabase.from('blocked_dates').delete().eq('booking_id', booking.id)
+    const rb = await executar(supabase.from('blocked_dates').delete().eq('booking_id', booking.id))
+    if (!rb.ok) {
+      setLoading(false)
+      setActionMsg({
+        text: `Reserva cancelada, mas as datas não foram liberadas: ${rb.erro} Libere pelo Calendário.`,
+        type: 'warn',
+      })
+      return
+    }
     router.push('/dashboard/reservas')
   }
 
@@ -402,32 +430,53 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
     const isPaid = booking.payment_status === 'deposit_paid' || booking.payment_status === 'fully_paid'
     const newStatus = isPaid ? 'confirmed' : 'pending'
     
-    await supabase.from('bookings').update({ status: newStatus }).eq('id', booking.id)
-    setStatus(newStatus)
+    const r = await executar(supabase.from('bookings').update({ status: newStatus }).eq('id', booking.id))
     setLoading(false)
+    if (!r.ok) { setActionMsg({ text: r.erro, type: 'err' }); return }
+    setStatus(newStatus)
     router.refresh()
   }
 
   const saveNotes = async () => {
     setNotesSaving(true)
-    await supabase.from('bookings').update({ notes }).eq('id', booking.id)
+    setActionMsg(null)
+    const r = await executar(supabase.from('bookings').update({ notes }).eq('id', booking.id))
     setNotesSaving(false)
+    if (!r.ok) { setActionMsg({ text: r.erro, type: 'err' }); return }
+    setActionMsg({ text: 'Observações salvas.', type: 'ok' })
     router.refresh()
   }
 
   const updateStatus = async (newStatus: string) => {
+    const anterior = status
     setLoading(true)
-    await supabase.from('bookings').update({ status: newStatus }).eq('id', booking.id)
+    setActionMsg(null)
     setStatus(newStatus)
+
+    const r = await executar(supabase.from('bookings').update({ status: newStatus }).eq('id', booking.id))
     setLoading(false)
+    if (!r.ok) {
+      // Volta o seletor: sem isto a tela mostrava um status que o banco recusou.
+      setStatus(anterior)
+      setActionMsg({ text: r.erro, type: 'err' })
+      return
+    }
     router.refresh()
   }
 
   const updatePaymentStatus = async (newStatus: string) => {
+    const anterior = paymentStatus
     setLoading(true)
-    await supabase.from('bookings').update({ payment_status: newStatus }).eq('id', booking.id)
+    setActionMsg(null)
     setPaymentStatus(newStatus)
+
+    const r = await executar(supabase.from('bookings').update({ payment_status: newStatus }).eq('id', booking.id))
     setLoading(false)
+    if (!r.ok) {
+      setPaymentStatus(anterior)
+      setActionMsg({ text: r.erro, type: 'err' })
+      return
+    }
     router.refresh()
   }
 
@@ -456,10 +505,10 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
   }
 
   const paymentStatusColors: Record<string, { fg: string, bg: string }> = {
-    pending:      { fg: 'var(--warning)',        bg: 'rgba(245,158,11,0.13)' },
-    deposit_paid: { fg: 'var(--success-strong)', bg: 'rgba(34,197,94,0.13)' },
-    fully_paid:   { fg: 'var(--info-strong)',    bg: 'rgba(59,130,246,0.13)' },
-    overdue:      { fg: 'var(--danger-strong)',  bg: 'rgba(239,68,68,0.13)' },
+    awaiting_deposit: { fg: 'var(--warning)',        bg: 'rgba(245,158,11,0.13)' },
+    deposit_paid:     { fg: 'var(--success-strong)', bg: 'rgba(34,197,94,0.13)' },
+    fully_paid:       { fg: 'var(--info-strong)',    bg: 'rgba(59,130,246,0.13)' },
+    refunded:         { fg: 'var(--neutral-soft)',   bg: 'rgba(148,163,184,0.13)' },
   }
 
   return (
@@ -1109,11 +1158,9 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
                 cursor: 'pointer',
               }}
             >
-              <option value="pending">Pendente</option>
-              <option value="confirmed">Confirmada</option>
-              <option value="checked_in">Check-in realizado</option>
-              <option value="completed">Concluída</option>
-              <option value="cancelled">Cancelada</option>
+              {BOOKING_STATUS_OPTIONS.map(([valor, rotulo]) => (
+                <option key={valor} value={valor}>{rotulo}</option>
+              ))}
             </select>
           </div>
           <div style={{ flex: '1 1 200px' }}>
@@ -1133,10 +1180,9 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
                 cursor: 'pointer',
               }}
             >
-              <option value="pending">Pendente</option>
-              <option value="deposit_paid">Sinal pago</option>
-              <option value="fully_paid">Pago integralmente</option>
-              <option value="overdue">Atrasado</option>
+              {PAYMENT_STATUS_OPTIONS.map(([valor, rotulo]) => (
+                <option key={valor} value={valor}>{rotulo}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -1150,7 +1196,7 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
             fontWeight: 600,
             textTransform: 'uppercase',
           }}>
-            {status === 'pending' ? 'Pendente' : status === 'confirmed' ? 'Confirmada' : status === 'checked_in' ? 'Check-in realizado' : status === 'completed' ? 'Concluída' : 'Cancelada'}
+            {bookingStatusLabel(status)}
           </div>
           <div style={{
             padding: '6px 12px',
@@ -1161,7 +1207,7 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
             fontWeight: 600,
             textTransform: 'uppercase',
           }}>
-            {paymentStatus === 'pending' ? 'Pendente' : paymentStatus === 'deposit_paid' ? 'Sinal pago' : paymentStatus === 'fully_paid' ? 'Pago integralmente' : 'Atrasado'}
+            {paymentStatusLabel(paymentStatus)}
           </div>
         </div>
 

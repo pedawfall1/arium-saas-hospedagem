@@ -15,6 +15,7 @@ import { formatMoney, parseMoney } from "@/lib/money"
  * for interpretável ele é mantido à vista para a pessoa ver o que digitou.
  */
 export function MoneyInput({
+  id,
   value,
   onChange,
   disabled,
@@ -22,6 +23,7 @@ export function MoneyInput({
   style,
   autoFocus,
 }: {
+  id?: string
   value: string
   onChange: (raw: string) => void
   disabled?: boolean
@@ -38,6 +40,7 @@ export function MoneyInput({
 
   return (
     <input
+      id={id}
       type="text"
       inputMode="decimal"
       value={display}

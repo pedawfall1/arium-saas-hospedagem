@@ -2,42 +2,49 @@
 
 import { useMemo } from "react"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
-import { subMonths, startOfMonth, endOfMonth, format, parseISO } from "date-fns"
+import { subMonths, startOfMonth, endOfMonth, format } from "date-fns"
 import { ptBR } from "date-fns/locale"
+import { bookingRevenue, type PaymentLike } from "@/lib/financeiro"
 
-export function RevenueChart({ bookings }: { bookings: any[] }) {
+/**
+ * Usa a MESMA regra de faturamento de Relatórios (lib/financeiro).
+ *
+ * Antes este gráfico tinha regra própria: filtrava por um payment_status
+ * 'approved' que nem existe no banco, agrupava pela data de criação e somava o
+ * valor cheio de qualquer reserva paga — mesmo das que ainda nem aconteceram.
+ * Dava um número diferente do resto do painel para o mesmo mês.
+ */
+export function RevenueChart({ bookings, payments = [] }: { bookings: any[], payments?: PaymentLike[] }) {
   const chartData = useMemo(() => {
     const data = []
     const now = new Date()
+    const hoje = format(now, 'yyyy-MM-dd')
 
-    // Create an array for the last 6 months
+    const porReserva = new Map<string, PaymentLike[]>()
+    for (const p of payments) {
+      const lista = porReserva.get(p.booking_id)
+      if (lista) lista.push(p)
+      else porReserva.set(p.booking_id, [p])
+    }
+
     for (let i = 5; i >= 0; i--) {
       const monthDate = subMonths(now, i)
-      const start = startOfMonth(monthDate)
-      const end = endOfMonth(monthDate)
+      const inicio = format(startOfMonth(monthDate), 'yyyy-MM-dd')
+      const fim = format(endOfMonth(monthDate), 'yyyy-MM-dd')
 
-      const monthBookings = bookings.filter(b => {
-        // user requested "payment_status = 'approved'" 
-        // We include deposit_paid/fully_paid just in case as they were used before.
-        const isApproved = b.payment_status === 'approved' || b.payment_status === 'deposit_paid' || b.payment_status === 'fully_paid'
-        
-        if (!isApproved) return false
-        
-        // Use check_in or created_at? The user didn't specify. Usually revenue is by created_at or check_in. Let's use check_in.
-        const d = parseISO(b.created_at || b.check_in)
-        return d >= start && d <= end
-      })
-
-      const totalAmount = monthBookings.reduce((acc, b) => acc + (Number(b.total_amount) || 0), 0)
+      // Atribuído pelo check-in (quando a estadia acontece), igual a Relatórios.
+      const total = bookings
+        .filter(b => b.check_in >= inicio && b.check_in <= fim)
+        .reduce((acc, b) => acc + bookingRevenue(b, hoje, porReserva.get(b.id)).realizado, 0)
 
       data.push({
         name: format(monthDate, 'MMM', { locale: ptBR }).replace('.', ''),
-        total: totalAmount,
+        total,
       })
     }
 
     return data
-  }, [bookings])
+  }, [bookings, payments])
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {

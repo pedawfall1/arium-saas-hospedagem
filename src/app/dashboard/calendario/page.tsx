@@ -32,15 +32,29 @@ export default async function CalendarioPage() {
   let holidays: any[] = []
 
   if (propertyIds.length > 0) {
-    const [{ data: bookingsRes }, { data: allBookingsRes }, { data: blocksRes }, { data: holidaysRes }] = await Promise.all([
-      supabase.from('bookings').select('*').in('property_id', propertyIds).in('status', ['confirmed', 'checked_in', 'completed']),
-      supabase.from('bookings').select('*').in('property_id', propertyIds),
-      supabase.from('blocked_dates').select('*').in('property_id', propertyIds),
-      supabase.from('holidays').select('*').in('property_id', propertyIds).order('date_from')
+    // O calendário navega mês a mês; carregar o histórico inteiro só para
+    // desenhar um mês fica caro conforme a base cresce. Uma janela de 1 ano
+    // para trás e 2 anos para frente cobre qualquer navegação real.
+    const hoje = new Date()
+    const de = new Date(hoje.getFullYear() - 1, hoje.getMonth(), 1).toISOString().slice(0, 10)
+    const ate = new Date(hoje.getFullYear() + 2, hoje.getMonth(), 1).toISOString().slice(0, 10)
+
+    // Uma consulta só. Antes a tabela de reservas era lida DUAS vezes na mesma
+    // tela: uma filtrada por status e outra completa. Agora filtramos aqui.
+    const [{ data: allBookingsRes }, { data: blocksRes }, { data: holidaysRes }] = await Promise.all([
+      supabase.from('bookings').select('*')
+        .in('property_id', propertyIds)
+        .gte('check_out', de)
+        .lte('check_in', ate),
+      supabase.from('blocked_dates').select('*')
+        .in('property_id', propertyIds)
+        .gte('date', de)
+        .lte('date', ate),
+      supabase.from('holidays').select('*').in('property_id', propertyIds).order('date_from'),
     ])
 
-    bookings = bookingsRes || []
     allBookings = allBookingsRes || []
+    bookings = allBookings.filter(b => ['confirmed', 'checked_in', 'completed'].includes(b.status))
     blockedDates = blocksRes || []
     holidays = holidaysRes || []
   }

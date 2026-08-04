@@ -1,23 +1,48 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const rateLimit = new Map<string, { count: number; resetTime: number }>()
+/**
+ * O limite que vale de verdade vive no Postgres (função consume_rate_limit),
+ * porque o middleware roda em várias instâncias e elas morrem sozinhas: um
+ * contador em memória, como o que existia aqui, quase nunca atingia o teto e
+ * ainda acumulava IPs até o processo reiniciar.
+ *
+ * O que sobra aqui é uma barreira de rajada por instância, para cortar excesso
+ * óbvio sem pagar uma ida ao banco.
+ */
+const rajada = new Map<string, { count: number; resetTime: number }>()
+const JANELA_MS = 10_000
+const MAX_POR_JANELA = 40
+
+/** Impede o Map de crescer sem fim quando muitos IPs passam por aqui. */
+function limpar(agora: number) {
+  if (rajada.size < 500) return
+  for (const [ip, r] of rajada) {
+    if (agora > r.resetTime) rajada.delete(ip)
+  }
+}
 
 export function middleware(request: NextRequest) {
-  if (request.nextUrl.pathname.startsWith('/api/')) {
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] ?? 'anonymous'
-    const now = Date.now()
-    const windowMs = 60 * 1000
-    const maxRequests = 60 // SaaS pode ter mais requests legítimos
-    const record = rateLimit.get(ip)
-    if (!record || now > record.resetTime) {
-      rateLimit.set(ip, { count: 1, resetTime: now + windowMs })
-    } else if (record.count >= maxRequests) {
-      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
-    } else {
-      record.count++
-    }
+  if (!request.nextUrl.pathname.startsWith('/api/')) return NextResponse.next()
+
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'anonymous'
+  const agora = Date.now()
+  limpar(agora)
+
+  const registro = rajada.get(ip)
+  if (!registro || agora > registro.resetTime) {
+    rajada.set(ip, { count: 1, resetTime: agora + JANELA_MS })
+    return NextResponse.next()
   }
+
+  if (registro.count >= MAX_POR_JANELA) {
+    return NextResponse.json(
+      { error: 'Muitas requisições em pouco tempo. Aguarde alguns segundos.' },
+      { status: 429, headers: { 'Retry-After': '10' } }
+    )
+  }
+
+  registro.count++
   return NextResponse.next()
 }
 
