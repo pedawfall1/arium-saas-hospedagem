@@ -5,6 +5,7 @@ import { TrendingUp, TrendingDown, Wallet, CalendarCheck, Clock, PiggyBank, Gift
 import { formatCurrency } from "@/lib/utils"
 import { startOfMonth, endOfMonth, parseISO, format, differenceInDays, subMonths } from "date-fns"
 import { computeFinance } from "@/lib/financeiro"
+import { ExportarContador } from "@/components/ExportarContador"
 import DatePicker from "react-datepicker"
 import "react-datepicker/dist/react-datepicker.css"
 
@@ -41,7 +42,7 @@ const td = {
   borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' as const,
 }
 
-export function RelatoriosClient({ bookings, properties, expenses, extras, categories, payments = [] }: any) {
+export function RelatoriosClient({ bookings, properties, expenses, extras, categories, payments = [], nomeNegocio = "Arium" }: any) {
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'))
   const [cabana, setCabana] = useState<string>('all')
@@ -195,6 +196,14 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
             <option value="all">Todas as cabanas (geral)</option>
             {properties.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
+        </div>
+        <div style={{ flex: '1 1 220px', display: 'flex', alignItems: 'flex-end' }}>
+          <ExportarContador
+            inicio={startDate} fim={endDate} hoje={hojeSafe}
+            properties={properties} bookings={bookings} expenses={expenses}
+            extras={extras} payments={payments} categories={categories}
+            nomeNegocio={nomeNegocio}
+          />
         </div>
       </div>
 

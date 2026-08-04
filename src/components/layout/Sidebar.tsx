@@ -4,11 +4,12 @@ import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { BookOpen, Calendar, Settings2, BarChart2, LayoutDashboard, Users, LogOut, MessageCircle, Wallet } from 'lucide-react'
+import { BookOpen, Calendar, Settings2, BarChart2, LayoutDashboard, Users, LogOut, MessageCircle, Wallet, Sun } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const TENANT_LINKS = [
   { href: '/dashboard',             label: 'Dashboard',    Icon: LayoutDashboard },
+  { href: '/dashboard/hoje',         label: 'Hoje',         Icon: Sun },
   { href: '/dashboard/reservas',     label: 'Reservas',     Icon: BookOpen },
   { href: '/dashboard/calendario',   label: 'Calendário',   Icon: Calendar },
   { href: '/dashboard/whatsapp',     label: 'WhatsApp',     Icon: MessageCircle },

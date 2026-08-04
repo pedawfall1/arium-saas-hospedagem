@@ -49,6 +49,7 @@ export default async function RelatoriosPage() {
       expenses={expenses || []}
       extras={extras || []}
       categories={categories || []}
+      nomeNegocio={tenant.business_name}
       payments={payments || []}
     />
   )

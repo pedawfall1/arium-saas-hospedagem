@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from "@/lib/utils"
 import { RecentBookingsTable } from "@/components/dashboard/RecentBookingsTable"
 import { RevenueChart } from "@/components/dashboard/RevenueChart"
 import { bookingRevenue } from "@/lib/financeiro"
+import { PrimeirosPassos } from "@/components/dashboard/PrimeirosPassos"
 
 export const revalidate = 30
 
@@ -16,14 +17,14 @@ export default async function TenantDashboardPage() {
 
   const { data: tenant } = await supabase
     .from('saas_reserva_tenants')
-    .select('id, business_name')
+    .select('id, business_name, whatsapp_status')
     .eq('auth_user_id', user.id)
     .single()
   if (!tenant) redirect("/login")
 
   const { data: properties } = await supabase
     .from('properties')
-    .select('id')
+    .select('id, base_price_weekday, base_price_weekend')
     .eq('tenant_id', tenant.id)
 
   const propertyIds = (properties || []).map(p => p.id)
@@ -148,6 +149,13 @@ export default async function TenantDashboardPage() {
           Aqui está um resumo da sua operação hoje — {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
         </p>
       </div>
+
+      <PrimeirosPassos
+        temCabana={(properties || []).length > 0}
+        temPreco={(properties || []).some(p => Number(p.base_price_weekday) > 0 && Number(p.base_price_weekend) > 0)}
+        temWhatsapp={tenant.whatsapp_status === 'connected'}
+        temReserva={bookings.length > 0}
+      />
 
       {/* Stat cards */}
       <div className="dash-stats">

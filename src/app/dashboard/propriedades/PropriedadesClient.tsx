@@ -12,6 +12,7 @@ import { useConfirm } from "@/components/ConfirmModal"
 import { MoneyInput } from "@/components/ui/MoneyInput"
 import { parseMoney } from "@/lib/money"
 import { executar } from "@/lib/salvar"
+import { BotaoBackup } from "@/components/BotaoBackup"
 
 const precoInputStyle = {
   backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px',
@@ -669,6 +670,10 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
           )}
         </div>
       )}
+
+      <div style={{ marginTop: '32px' }}>
+        <BotaoBackup />
+      </div>
     </div>
   )
 }
