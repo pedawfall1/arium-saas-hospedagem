@@ -13,6 +13,7 @@ import { MoneyInput } from "@/components/ui/MoneyInput"
 import { parseMoney } from "@/lib/money"
 import { executar } from "@/lib/salvar"
 import { BotaoBackup } from "@/components/BotaoBackup"
+import { PrecosAvancados } from "@/components/propriedades/PrecosAvancados"
 
 const precoInputStyle = {
   backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px',
@@ -477,6 +478,8 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                   </button>
                 </div>
               </div>
+
+              <PrecosAvancados property={activeProp} />
 
               {/* SECTION 2: Regras Especiais e Feriados */}
               <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '28px', marginBottom: '20px' }}>
