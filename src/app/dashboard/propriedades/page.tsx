@@ -43,9 +43,10 @@ export default async function PropriedadesPage() {
     dailyRates = dailyData || []
   }
 
-  const [{ data: extras }, { data: pacotes }] = await Promise.all([
+  const [{ data: extras }, { data: pacotes }, { data: promotions }] = await Promise.all([
     supabase.from('extras').select('*').eq('tenant_id', tenant.id).order('position').order('label'),
     supabase.from('romantic_packages').select('*').eq('tenant_id', tenant.id).order('position').order('label'),
+    propertyIds.length ? supabase.from('promotions').select('*').in('property_id', propertyIds).order('date_from', { ascending: false }) : Promise.resolve({ data: [] }),
   ])
 
   return (
@@ -59,6 +60,7 @@ export default async function PropriedadesPage() {
       tenantId={tenant.id}
       initialExtras={extras || []}
       initialPacotes={pacotes || []}
+      initialPromotions={promotions || []}
     />
   )
 }

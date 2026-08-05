@@ -16,6 +16,7 @@ import { BotaoBackup } from "@/components/BotaoBackup"
 import { PrecosAvancados } from "@/components/propriedades/PrecosAvancados"
 import { CalendarioPrecos } from "@/components/propriedades/CalendarioPrecos"
 import { ExtrasEPacotes } from "@/components/propriedades/ExtrasEPacotes"
+import { Promocoes } from "@/components/propriedades/Promocoes"
 
 const precoInputStyle = {
   backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px',
@@ -78,7 +79,7 @@ function MiniCalendar({ propertyId, blocks, onToggleBlock }: any) {
   )
 }
 
-export function PropriedadesClient({ initialProperties, tenantName, initialRules, initialBlocks, initialHolidays, initialDailyRates = [], tenantId, initialExtras = [], initialPacotes = [] }: any) {
+export function PropriedadesClient({ initialProperties, tenantName, initialRules, initialBlocks, initialHolidays, initialDailyRates = [], tenantId, initialExtras = [], initialPacotes = [], initialPromotions = [] }: any) {
   const supabase = createClient()
   const router = useRouter()
   const [properties, setProperties] = useState(initialProperties)
@@ -489,6 +490,8 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                 rules={rules}
                 holidays={holidays}
               />
+
+              <Promocoes property={activeProp} promotions={initialPromotions} />
 
               {/* SECTION 2: Regras Especiais e Feriados */}
               <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '28px', marginBottom: '20px' }}>
