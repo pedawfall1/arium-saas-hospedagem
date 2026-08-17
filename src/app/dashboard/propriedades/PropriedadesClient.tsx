@@ -17,6 +17,8 @@ import { PrecosAvancados } from "@/components/propriedades/PrecosAvancados"
 import { CalendarioPrecos } from "@/components/propriedades/CalendarioPrecos"
 import { ExtrasEPacotes } from "@/components/propriedades/ExtrasEPacotes"
 import { Promocoes } from "@/components/propriedades/Promocoes"
+import { PreviaNoites } from "@/components/propriedades/PreviaNoites"
+import { noitesDoRegistro, paraArmazenamento, noitesCobertas, descreveNoites, detectarProblemas } from "@/lib/datasEspeciais"
 
 const precoInputStyle = {
   backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px',
@@ -97,7 +99,9 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
 
   // Feriados
   const [holidays, setHolidays] = useState(initialHolidays)
-  const [newHoliday, setNewHoliday] = useState({ property_id: '', name: '', date_from: '', date_to: '', price: '', min_nights: '1' })
+  // Fala em NOITES (primeira/última), não em date_from/date_to. A conversão
+  // para os campos do banco acontece no salvar, via paraArmazenamento().
+  const [newHoliday, setNewHoliday] = useState({ property_id: '', name: '', primeira: '', ultima: '', price: '', min_nights: '1' })
   const [singleDate, setSingleDate] = useState("")
   const [singleDateOut, setSingleDateOut] = useState("")
   const [savingHoliday, setSavingHoliday] = useState(false)
@@ -112,6 +116,24 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
   const activeProp = properties.find((p: any) => p.id === activeTab)
   const activeRules = rules.filter((r: any) => r.property_id === activeTab)
   const activeHolidays = holidays.filter((h: any) => h.property_id === activeTab)
+
+  // Detecta buraco/duplicata entre registros de mesmo nome (só alerta, nunca
+  // corrige sozinho). Contíguas de 1 noite que cobrem tudo não geram aviso.
+  const problemasDatas = (() => {
+    const out: any[] = []
+    const grupos = (lista: any[], campo: string, tipo: 'feriado' | 'regra') => {
+      const porNome = new Map<string, any[]>()
+      for (const x of lista) {
+        const nome = (x[campo] || '').trim()
+        const g = porNome.get(nome)
+        if (g) g.push(x); else porNome.set(nome, [x])
+      }
+      for (const [nome, grupo] of porNome) out.push(...detectarProblemas(tipo, nome, grupo))
+    }
+    grupos(activeHolidays, 'name', 'feriado')
+    grupos(activeRules, 'label', 'regra')
+    return out
+  })()
 
   const [pricesMsg, setPricesMsg] = useState<{ text: string, type: 'ok' | 'err' } | null>(null)
 
@@ -196,23 +218,27 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
 
   const handleEditRule = (r: any) => {
     setEditingRule(r.id)
-    setEditRuleData(r)
+    // Converte armazenamento -> noites. Regra é INCLUSIVA: última noite = valid_until.
+    const { primeira, ultima } = noitesDoRegistro('regra', r)
+    setEditRuleData({ ...r, primeira, ultima })
   }
 
   const handleSaveRuleEdit = async () => {
+    if (editRuleData.ultima < editRuleData.primeira) {
+      setPricesMsg({ text: 'A última noite não pode ser antes da primeira.', type: 'err' }); return
+    }
     setSavingRule(true)
-    const { data } = await supabase.from('pricing_rules').update({
+    const { data, error } = await supabase.from('pricing_rules').update({
       label: editRuleData.label,
       price: Number(editRuleData.price),
-      valid_from: editRuleData.valid_from,
-      valid_until: editRuleData.valid_until
+      ...paraArmazenamento('regra', editRuleData.primeira, editRuleData.ultima),
     }).eq('id', editRuleData.id).select()
-    
+    setSavingRule(false)
+    if (error) { setPricesMsg({ text: error.message, type: 'err' }); return }
     if (data && data.length > 0) {
       setRules(rules.map((r: any) => r.id === editRuleData.id ? data[0] : r))
     }
     setEditingRule(null)
-    setSavingRule(false)
   }
 
   const handleReplicateRule = async (r: any) => {
@@ -236,21 +262,28 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
 
   const handleAddHoliday = async (e: React.FormEvent, propertyId: string) => {
     e.preventDefault()
+    setPricesMsg(null)
+    if (!newHoliday.primeira || !newHoliday.ultima) {
+      setPricesMsg({ text: 'Escolha a primeira e a última noite.', type: 'err' }); return
+    }
+    if (newHoliday.ultima < newHoliday.primeira) {
+      setPricesMsg({ text: 'A última noite não pode ser antes da primeira.', type: 'err' }); return
+    }
     setSavingHoliday(true)
     const holidayObj = {
       property_id: propertyId,
       name: newHoliday.name,
-      date_from: newHoliday.date_from,
-      date_to: newHoliday.date_to,
+      ...paraArmazenamento('feriado', newHoliday.primeira, newHoliday.ultima),
       price: newHoliday.price ? Number(newHoliday.price) : null,
       min_nights: Number(newHoliday.min_nights) || 1,
     }
-    const { data } = await supabase.from('holidays').insert([holidayObj]).select()
+    const { data, error } = await supabase.from('holidays').insert([holidayObj]).select()
+    setSavingHoliday(false)
+    if (error) { setPricesMsg({ text: error.message, type: 'err' }); return }
     if (data && data.length > 0) {
       setHolidays([...holidays, data[0]])
-      setNewHoliday({ property_id: '', name: '', date_from: '', date_to: '', price: '', min_nights: '1' })
+      setNewHoliday({ property_id: '', name: '', primeira: '', ultima: '', price: '', min_nights: '1' })
     }
-    setSavingHoliday(false)
   }
 
   const handleQuickAddHoliday = async (e: React.FormEvent, form: HTMLFormElement, propertyId: string) => {
@@ -291,24 +324,28 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
 
   const handleEditHoliday = (h: any) => {
     setEditingHoliday(h.id)
-    setEditHolidayData(h)
+    // Feriado é EXCLUSIVO: última noite = date_to - 1.
+    const { primeira, ultima } = noitesDoRegistro('feriado', h)
+    setEditHolidayData({ ...h, primeira, ultima })
   }
 
   const handleSaveHolidayEdit = async () => {
+    if (editHolidayData.ultima < editHolidayData.primeira) {
+      setPricesMsg({ text: 'A última noite não pode ser antes da primeira.', type: 'err' }); return
+    }
     setSavingHoliday(true)
-    const { data } = await supabase.from('holidays').update({
+    const { data, error } = await supabase.from('holidays').update({
       name: editHolidayData.name,
-      date_from: editHolidayData.date_from,
-      date_to: editHolidayData.date_to,
+      ...paraArmazenamento('feriado', editHolidayData.primeira, editHolidayData.ultima),
       price: editHolidayData.price ? Number(editHolidayData.price) : null,
       min_nights: Number(editHolidayData.min_nights) || 1,
     }).eq('id', editHolidayData.id).select()
-    
+    setSavingHoliday(false)
+    if (error) { setPricesMsg({ text: error.message, type: 'err' }); return }
     if (data && data.length > 0) {
       setHolidays(holidays.map((h: any) => h.id === editHolidayData.id ? data[0] : h))
     }
     setEditingHoliday(null)
-    setSavingHoliday(false)
   }
 
   const handleReplicateHoliday = async (h: any) => {
@@ -503,6 +540,29 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                   <p style={{ color: 'var(--muted)', fontSize: '13px' }}>Sobrescreve os preços base e mínimo de noites em períodos específicos.</p>
                 </div>
 
+                {problemasDatas.length > 0 && (
+                  <div style={{
+                    backgroundColor: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.4)',
+                    borderRadius: '10px', padding: '14px 18px', marginBottom: '20px',
+                  }}>
+                    <p style={{ color: 'var(--warning)', fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>
+                      ⚠️ Atenção nestas datas
+                    </p>
+                    <ul style={{ margin: 0, paddingLeft: '18px', color: 'var(--text)', fontSize: '13px', lineHeight: 1.6 }}>
+                      {problemasDatas.map((p: any, i: number) => (
+                        <li key={i}>
+                          {p.kind === 'buraco'
+                            ? <>Em <strong>{p.nomeGrupo}</strong>, {p.faltando.length === 1 ? 'a noite' : 'as noites'} de{' '}
+                                <strong>{descreveNoites(p.faltando).split(': ')[1]}</strong>{' '}
+                                {p.faltando.length === 1 ? 'ficou de fora' : 'ficaram de fora'} e serão vendidas pelo preço normal.
+                                Edite uma das regras e estenda a <strong>última noite</strong> para cobrir.</>
+                            : <>Regra <strong>duplicada</strong> ({p.resumo}) — tem entrada repetida. Apague uma delas.</>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 {activeRules.length > 0 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
                     {activeRules.map((r: any) => (
@@ -510,8 +570,10 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                         {editingRule === r.id ? (
                           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                             <input value={editRuleData.label} onChange={e => setEditRuleData({...editRuleData, label: e.target.value})} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px', width: '140px' }} placeholder="Nome da Regra" />
-                            <input type="date" value={editRuleData.valid_from} onChange={e => setEditRuleData({...editRuleData, valid_from: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px' }} />
-                            <input type="date" value={editRuleData.valid_until} onChange={e => setEditRuleData({...editRuleData, valid_until: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px' }} />
+                            <label style={{ display: 'flex', flexDirection: 'column', gap: '2px', color: 'var(--muted)', fontSize: '11px' }}>Primeira noite
+                              <input type="date" value={editRuleData.primeira} onChange={e => setEditRuleData({...editRuleData, primeira: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px' }} /></label>
+                            <label style={{ display: 'flex', flexDirection: 'column', gap: '2px', color: 'var(--muted)', fontSize: '11px' }}>Última noite
+                              <input type="date" value={editRuleData.ultima} onChange={e => setEditRuleData({...editRuleData, ultima: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px' }} /></label>
                             <input type="number" value={editRuleData.price || ''} onChange={e => setEditRuleData({...editRuleData, price: e.target.value})} placeholder="Preço" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px', width: '100px' }} />
                             <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
                               <button onClick={handleSaveRuleEdit} style={{ backgroundColor: 'var(--purple)', color: 'white', border: 'none', borderRadius: '6px', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Check size={16} /></button>
@@ -523,7 +585,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                             <div>
                               <p style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>{r.label}</p>
                               <p style={{ color: 'var(--muted)', fontSize: '12px' }}>
-                                {formatDate(r.valid_from)} até {formatDate(r.valid_until)}
+                                {descreveNoites(noitesCobertas('regra', r))}
                               </p>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -556,8 +618,10 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                           {editingHoliday === h.id ? (
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', padding: '12px 16px' }}>
                               <input value={editHolidayData.name} onChange={e => setEditHolidayData({...editHolidayData, name: e.target.value})} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px', width: '140px' }} placeholder="Nome" />
-                              <input type="date" value={editHolidayData.date_from} onChange={e => setEditHolidayData({...editHolidayData, date_from: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px' }} />
-                              <input type="date" value={editHolidayData.date_to} onChange={e => setEditHolidayData({...editHolidayData, date_to: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px' }} />
+                              <label style={{ display: 'flex', flexDirection: 'column', gap: '2px', color: 'var(--muted)', fontSize: '11px' }}>Primeira noite
+                                <input type="date" value={editHolidayData.primeira} onChange={e => setEditHolidayData({...editHolidayData, primeira: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px' }} /></label>
+                              <label style={{ display: 'flex', flexDirection: 'column', gap: '2px', color: 'var(--muted)', fontSize: '11px' }}>Última noite
+                                <input type="date" value={editHolidayData.ultima} onChange={e => setEditHolidayData({...editHolidayData, ultima: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px' }} /></label>
                               <input type="number" value={editHolidayData.price || ''} onChange={e => setEditHolidayData({...editHolidayData, price: e.target.value})} placeholder="Preço" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px', width: '100px' }} />
                               <input type="number" value={editHolidayData.min_nights || ''} onChange={e => setEditHolidayData({...editHolidayData, min_nights: e.target.value})} placeholder="Mín. noites" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px', width: '80px' }} />
                               <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
@@ -586,10 +650,10 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                                   </span>
                                 )}
                                 <p style={{ color: 'var(--muted)', fontSize: '12px', opacity: 0.7 }}>
-                                  {formatDate(h.date_from)} até {formatDate(h.date_to)}
+                                  {descreveNoites(noitesCobertas('feriado', h))}
                                 </p>
                                 <p style={{ color: 'var(--muted)', fontSize: '12px', opacity: 0.7 }}>
-                                  {h.min_nights ? `Mín. ${h.min_nights} noites` : 'Mín. 1 noite'}
+                                  {h.min_nights > 1 ? `Mín. ${h.min_nights} noites (para check-in nestas datas)` : 'Mín. 1 noite'}
                                 </p>
                               </div>
                               <div style={{
@@ -622,12 +686,12 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                       <input required value={newHoliday.name} onChange={e => setNewHoliday({...newHoliday, name: e.target.value})} placeholder="Ex: Natal" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
                     </div>
                     <div style={{ minWidth: 0 }}>
-                      <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Data Inicial</label>
-                      <input className="w-full max-w-full box-border" type="date" required value={newHoliday.date_from} onChange={e => setNewHoliday({...newHoliday, date_from: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', minHeight: '48px', outline: 'none' }} />
+                      <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Primeira noite</label>
+                      <input className="w-full max-w-full box-border" type="date" required value={newHoliday.primeira} onChange={e => setNewHoliday({...newHoliday, primeira: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', minHeight: '48px', outline: 'none' }} />
                     </div>
                     <div style={{ minWidth: 0 }}>
-                      <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Data Final</label>
-                      <input className="w-full max-w-full box-border" type="date" required value={newHoliday.date_to} onChange={e => setNewHoliday({...newHoliday, date_to: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', minHeight: '48px', outline: 'none' }} />
+                      <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Última noite</label>
+                      <input className="w-full max-w-full box-border" type="date" required value={newHoliday.ultima} onChange={e => setNewHoliday({...newHoliday, ultima: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', minHeight: '48px', outline: 'none' }} />
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Preço/noite (R$)</label>
@@ -635,11 +699,21 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Mínimo de noites</label>
-                      <input type="number" required value={newHoliday.min_nights} onChange={e => setNewHoliday({...newHoliday, min_nights: e.target.value})} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
+                      <input type="number" required min="1" value={newHoliday.min_nights} onChange={e => setNewHoliday({...newHoliday, min_nights: e.target.value})} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
+                      <p style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px', lineHeight: 1.4 }}>Aplica-se a quem faz CHECK-IN nestas datas.</p>
                     </div>
                     <button type="submit" disabled={savingHoliday} style={{ backgroundColor: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '8px', padding: '11px 24px', fontSize: '14px', cursor: 'pointer', fontWeight: 600, height: '45px' }}>
                       {savingHoliday ? "..." : "Adicionar Feriado"}
                     </button>
+                    {newHoliday.primeira && newHoliday.ultima && (
+                      <div style={{ gridColumn: '1 / -1' }}>
+                        <PreviaNoites
+                          property={activeProp} dailyRates={initialDailyRates} rules={rules} holidays={holidays}
+                          primeira={newHoliday.primeira} ultima={newHoliday.ultima}
+                          precoDraft={newHoliday.price} minDraft={newHoliday.min_nights}
+                        />
+                      </div>
+                    )}
                   </form>
 
                   {/* Formulário rápido para Diária Única */}
