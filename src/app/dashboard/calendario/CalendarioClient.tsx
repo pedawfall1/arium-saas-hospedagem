@@ -117,6 +117,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
 
   const getAllDayBookings = (date: Date, propertyId?: string) => {
     const dayBookings = (allBookings || []).filter((b: any) => {
+      if (b.status === 'cancelled') return false
       const targetProperty = propertyId || filterProperty
       if (targetProperty && b.property_id !== targetProperty) return false
       const formattedDay = format(date, 'yyyy-MM-dd')
