@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useEffect, useState } from "react"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts"
 import { subMonths, startOfMonth, endOfMonth, format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -15,6 +15,14 @@ import { bookingRevenue, type PaymentLike } from "@/lib/financeiro"
  * Dava um número diferente do resto do painel para o mesmo mês.
  */
 export function RevenueChart({ bookings, payments = [] }: { bookings: any[], payments?: PaymentLike[] }) {
+  // O ResponsiveContainer do recharts mede o container via ResizeObserver.
+  // No servidor (e no primeiríssimo paint) o container tem tamanho 0/-1, e no
+  // iOS Safari isso vira um loop de ResizeObserver que TRAVA a thread — a
+  // navegação do login pro /dashboard nunca terminava. Só renderizamos o
+  // gráfico depois de montar no cliente, com altura fixa.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
   const chartData = useMemo(() => {
     const data = []
     const now = new Date()
@@ -68,7 +76,8 @@ export function RevenueChart({ bookings, payments = [] }: { bookings: any[], pay
 
   return (
     <div style={{ width: '100%', height: 260 }}>
-      <ResponsiveContainer width="100%" height="100%">
+      {mounted && (
+      <ResponsiveContainer width="100%" height={260} minHeight={260}>
         <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
           <XAxis 
             dataKey="name" 
@@ -94,6 +103,7 @@ export function RevenueChart({ bookings, payments = [] }: { bookings: any[], pay
           />
         </BarChart>
       </ResponsiveContainer>
+      )}
     </div>
   )
 }

@@ -31,11 +31,12 @@ export default function LoginPage() {
       return
     }
 
-    // Check if arium admin
-    console.log('admin email env:', process.env.NEXT_PUBLIC_ARIUM_ADMIN_EMAIL)
+    // Navegação direta (full load) em vez de router.push + refresh: garante que
+    // o painel carrega do zero, sem depender da navegação client-side do App
+    // Router (que estava ficando presa em alguns navegadores, deixando o botão
+    // girando pra sempre mesmo com o login já tendo dado certo).
     const isAdmin = email.trim().toLowerCase() === (process.env.NEXT_PUBLIC_ARIUM_ADMIN_EMAIL ?? '').trim().toLowerCase()
-    router.push(isAdmin ? '/arium/dashboard' : '/dashboard')
-    router.refresh()
+    window.location.assign(isAdmin ? '/arium/dashboard' : '/dashboard')
   }
 
   return (
