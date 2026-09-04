@@ -12,7 +12,15 @@ import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useConfirm } from "@/components/ConfirmModal"
 import { executar } from "@/lib/salvar"
+import { seguraDatas } from "@/lib/hold"
+import { useMinuteTick } from "@/components/ui/HoldCountdown"
 export function CalendarioClient({ properties, bookings, allBookings, blockedDates, holidays, tenantName }: any) {
+  // Relógio compartilhado: uma pendente só mostra "P" enquanto a trava de 24h
+  // não venceu. É `null` até montar no cliente, para o HTML do servidor não
+  // divergir do navegador (hydration). Ver lib/hold.ts.
+  const agora = useMinuteTick()
+  /** Mesma condição do banco: pendente que ainda segura a data. */
+  const seguraAgora = (b: any) => agora !== null && seguraDatas(b, agora)
   // Add CSS for mobile-only button
   useEffect(() => {
     const style = document.createElement('style')
@@ -556,7 +564,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
               isSameDay(parseISO(d.date), day) && d.property_id === filterProperty
             )
             const pendingBooking = (allBookings || []).find((b: any) =>
-              b.status === 'pending' &&
+              seguraAgora(b) &&
               b.property_id === filterProperty &&
               day >= parseISO(b.check_in) &&
               day < parseISO(b.check_out)
@@ -566,7 +574,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
             const otherProperty = sortedProperties.find((p: any) => p.id !== filterProperty)
             const otherPendingBooking = otherProperty
               ? (allBookings || []).find((b: any) =>
-                  b.status === 'pending' &&
+                  seguraAgora(b) &&
                   b.property_id === otherProperty.id &&
                   day >= parseISO(b.check_in) &&
                   day < parseISO(b.check_out)
@@ -840,7 +848,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                             isSameDay(parseISO(d.date), day) && d.property_id === property.id
                           )
                           const pendingBooking = (allBookings || []).find((b: any) =>
-                            b.status === 'pending' &&
+                            seguraAgora(b) &&
                             b.property_id === property.id &&
                             day >= parseISO(b.check_in) &&
                             day < parseISO(b.check_out)
@@ -848,7 +856,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                           const otherPropertyInUnified = sortedProperties.find((p: any) => p.id !== property.id)
                           const otherPendingBookingInUnified = otherPropertyInUnified
                             ? (allBookings || []).find((b: any) =>
-                                b.status === 'pending' &&
+                                seguraAgora(b) &&
                                 b.property_id === otherPropertyInUnified.id &&
                                 day >= parseISO(b.check_in) &&
                                 day < parseISO(b.check_out)

@@ -6,6 +6,7 @@ import { formatCurrency, formatDate } from "@/lib/utils"
 import { RecentBookingsTable } from "@/components/dashboard/RecentBookingsTable"
 import { RevenueChart } from "@/components/dashboard/RevenueChart"
 import { bookingRevenue } from "@/lib/financeiro"
+import { seguraDatas } from "@/lib/hold"
 import { PrimeirosPassos } from "@/components/dashboard/PrimeirosPassos"
 
 export const revalidate = 30
@@ -60,7 +61,10 @@ export default async function TenantDashboardPage() {
   const currentMonth = now.getMonth()
   const currentYear = now.getFullYear()
 
-  const pendingBookings = bookings.filter(b => b.status === 'pending').length
+  // Só conta a pendente que AINDA segura as datas (trava de 24h). Uma pendente
+  // vencida já foi liberada pelo site, então contá-la aqui inflava o número e
+  // fazia a dona cobrar um hóspede que não estava mais reservando nada.
+  const pendingBookings = bookings.filter(b => seguraDatas(b, now)).length
 
   // Mesma regra de Relatórios: estadia terminada conta o valor cheio; antes
   // disso, só o que já foi pago. Antes esta conta somava apenas o sinal e

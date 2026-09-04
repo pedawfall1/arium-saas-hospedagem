@@ -8,7 +8,7 @@ import { describeHold, hasHold, type HoldBooking } from "@/lib/hold"
  * alinhado à virada do minuto. Devolve `null` até montar no cliente, para
  * não divergir do HTML renderizado no servidor (hydration).
  */
-function useMinuteTick(): Date | null {
+export function useMinuteTick(): Date | null {
   const [now, setNow] = useState<Date | null>(null)
 
   useEffect(() => {

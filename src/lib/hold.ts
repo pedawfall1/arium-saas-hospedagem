@@ -39,6 +39,23 @@ export function hasHold(booking: HoldBooking): boolean {
   return booking.status === "pending" && getHoldExpiry(booking) !== null
 }
 
+/**
+ * A pendente AINDA está segurando as datas neste instante?
+ *
+ * É a mesma condição que check_availability() e get_unavailable_dates() aplicam
+ * no Postgres — por isso o site já libera a data assim que as 24h vencem. O
+ * painel precisa usar este mesmo critério, senão mostra uma reserva "segurando"
+ * uma data que o site está vendendo (a dona recusa hóspede à toa).
+ *
+ * Sem created_at nem hold_expires_at não há prazo: o banco trata como NULL, que
+ * não passa no `> now()`, então aqui também não segura.
+ */
+export function seguraDatas(booking: HoldBooking, now: Date): boolean {
+  if (booking.status !== "pending") return false
+  const expiry = getHoldExpiry(booking)
+  return expiry !== null && expiry.getTime() > now.getTime()
+}
+
 export type HoldState = {
   expiry: Date
   msLeft: number
