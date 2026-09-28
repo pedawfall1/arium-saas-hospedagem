@@ -14,7 +14,8 @@ import { useConfirm } from "@/components/ConfirmModal"
 import { executar } from "@/lib/salvar"
 import { seguraDatas } from "@/lib/hold"
 import { useMinuteTick } from "@/components/ui/HoldCountdown"
-export function CalendarioClient({ properties, bookings, allBookings, blockedDates, holidays, tenantName }: any) {
+import { precoDoDia } from "@/lib/precoDoDia"
+export function CalendarioClient({ properties, bookings, allBookings, blockedDates, holidays, dailyRates, pricingRules, tenantName }: any) {
   // Relógio compartilhado: uma pendente só mostra "P" enquanto a trava de 24h
   // não venceu. É `null` até montar no cliente, para o HTML do servidor não
   // divergir do navegador (hydration). Ver lib/hold.ts.
@@ -144,23 +145,23 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
     const property = sortedProperties.find((p: any) => p.id === propertyId)
     if (!property) return null
 
-    const dateStr = format(date, 'yyyy-MM-dd')
-
-    // Check holiday pricing first
-    const holiday = holidays?.find((h: any) =>
-      h.property_id === propertyId &&
-      dateStr >= h.date_from &&
-      dateStr <= h.date_to
+    // Mesma precedência do calculate_price (ver lib/precoDoDia). Antes o
+    // feriado era lido com date_to INCLUSIVO e o painel mostrava R$550 numa
+    // noite que o site cobrava R$480.
+    const doImovel = (lista: any[] | undefined) => (lista || []).filter((x: any) => x.property_id === propertyId)
+    const dia = precoDoDia(
+      format(date, 'yyyy-MM-dd'),
+      property,
+      doImovel(dailyRates),
+      doImovel(pricingRules),
+      doImovel(holidays),
     )
-    if (holiday?.price) return Number(holiday.price)
 
-    // Weekend = friday(5) or saturday(6)
-    const dayOfWeek = date.getDay()
-    const isWeekend = dayOfWeek === 5 || dayOfWeek === 6
-
-    return isWeekend
-      ? Number(property.base_price_weekend)
-      : Number(property.single_night_weekday_price || property.base_price_weekday)
+    // Diária única de dia de semana: é o que o motor cobra numa estadia de 1 noite.
+    if (dia.origem === 'semana' && property.single_night_weekday_price != null) {
+      return Number(property.single_night_weekday_price)
+    }
+    return dia.preco
   }
 
   // Textos usam variáveis de tema (escurecem no tema claro); fundos e bordas
