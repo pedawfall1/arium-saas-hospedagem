@@ -167,7 +167,18 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
   // Textos usam variáveis de tema (escurecem no tema claro); fundos e bordas
   // continuam em rgba/hex fixo, pois só tingem levemente e funcionam nos dois.
   const getCabinColors = (index: number) => {
-    if (index === 0) return {
+    // 3ª cabana em diante (ex.: Edi tem 3): verde-água. Antes tudo que não era a
+    // primeira cabana saía roxo e duas cabanas ficavam indistinguíveis.
+    if (index % 3 === 2) return {
+      booking: 'rgba(20,184,166,0.08)',
+      bookingPill: '#14b8a622',
+      bookingText: '#14b8a6',
+      blocked: 'rgba(59,130,246,0.06)',
+      blockedPill: '#3b82f622',
+      blockedText: '#3b82f6',
+      accent: '#14b8a6',
+    }
+    if (index % 3 === 0) return {
       // Doce Encanto — red for blocked
       booking: 'rgba(249,123,0,0.08)',
       bookingPill: '#f97b0022',
@@ -238,6 +249,19 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
   }
 
   const propertyIndex = (pid: string) => sortedProperties.findIndex((p: any) => p.id === pid)
+
+  /** Escolhe entre variantes por cabana (a 1ª, a 2ª, a 3ª; depois repete). */
+  const cor = (pid: string, opcoes: [string, string, string]) => {
+    const i = propertyIndex(pid)
+    return opcoes[i >= 0 ? i % 3 : 0]
+  }
+  /** Letra do selo "ocupada na outra cabana"; usa 2 letras se houver iniciais iguais. */
+  const siglaCabana = (p: any, outras: any[]) => {
+    const nome = String(p.name).replace('Cabana ', '').replace('Chalé ', '').trim()
+    const repetida = outras.some((o: any) => o.id !== p.id &&
+      String(o.name).replace('Cabana ', '').replace('Chalé ', '').trim().charAt(0).toLowerCase() === nome.charAt(0).toLowerCase())
+    return repetida ? nome.slice(0, 2) : nome.charAt(0)
+  }
 
   return (
     <div style={{ width: '100%' }}>
@@ -352,7 +376,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
           </div>
 
           {/* Right: Separado / Unificado toggle only */}
-          {sortedProperties.length === 2 && (
+          {sortedProperties.length >= 2 && (
             <div style={{ display: 'flex', gap: '4px', backgroundColor: 'var(--bg)', borderRadius: '8px', padding: '4px' }}>
               <button
                 onClick={() => setCalendarMode('split')}
@@ -404,7 +428,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
         {/* Property Filter Bar */}
         <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '8px' }}>
           {sortedProperties.map((p: any, i: number) => {
-            const cabinColor = i === 0 ? '#f97b00' : '#7c3aed'
+            const cabinColor = ['#f97b00', '#7c3aed', '#14b8a6'][i % 3]
             return (
               <button key={p.id} onClick={() => setFilterProperty(p.id)} style={{ padding: '6px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: filterProperty === p.id ? 600 : 500, border: '1px solid transparent', backgroundColor: filterProperty === p.id ? `${cabinColor}20` : 'transparent', color: filterProperty === p.id ? cabinColor : 'var(--muted)', cursor: 'pointer', transition: 'all 0.15s' }}>
                 {p.name}
@@ -572,41 +596,35 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
             )
 
             // Cross-cabin availability check
-            const otherProperty = sortedProperties.find((p: any) => p.id !== filterProperty)
-            const otherPendingBooking = otherProperty
-              ? (allBookings || []).find((b: any) =>
-                  seguraAgora(b) &&
-                  b.property_id === otherProperty.id &&
-                  day >= parseISO(b.check_in) &&
-                  day < parseISO(b.check_out)
-                )
-              : null
+            // TODAS as outras cabanas (a dona pode ter 3 ou mais), não só a primeira.
+            const outrasCabanas = sortedProperties.filter((p: any) => p.id !== filterProperty)
+            const otherPendingBooking = (allBookings || []).find((b: any) =>
+              seguraAgora(b) &&
+              b.property_id !== filterProperty &&
+              outrasCabanas.some((o: any) => o.id === b.property_id) &&
+              day >= parseISO(b.check_in) &&
+              day < parseISO(b.check_out)
+            )
 
             const cellBackgroundColor = booking
-              ? propertyIndex(booking.property_id) === 0
-                ? 'rgba(249,123,0,0.08)'
-                : 'rgba(124,58,237,0.08)'
+              ? cor(booking.property_id, ['rgba(249,123,0,0.08)', 'rgba(124,58,237,0.08)', 'rgba(20,184,166,0.08)'])
               : isBlocked
-                ? (propertyIndex(filterProperty) === 0 ? 'rgba(239,68,68,0.06)' : 'rgba(234,179,8,0.06)')
+                ? cor(filterProperty, ['rgba(239,68,68,0.06)', 'rgba(234,179,8,0.06)', 'rgba(59,130,246,0.06)'])
                 : 'transparent'
 
             // Range selection highlighting
             const isInRange = rangeMode && rangeStart && rangeEnd && dateStr >= rangeStart && dateStr <= rangeEnd
             const isRangeStart = rangeMode && dateStr === rangeStart
             const isRangeEnd = rangeMode && dateStr === rangeEnd
-            const otherIsBlocked = otherProperty
-              ? blockedDates.some((d: any) =>
-                  isSameDay(parseISO(d.date), day) && d.property_id === otherProperty.id
-                )
-              : false
-            const otherHasBooking = otherProperty
-              ? bookings.some((b: any) =>
-                  b.property_id === otherProperty.id &&
-                  day >= parseISO(b.check_in) &&
-                  day < parseISO(b.check_out)
-                )
-              : false
-            const otherIsOccupied = otherIsBlocked || otherHasBooking
+            // Quais das outras cabanas estão ocupadas (bloqueio ou reserva) neste dia.
+            const outrasOcupadas = outrasCabanas.filter((o: any) =>
+              blockedDates.some((d: any) => isSameDay(parseISO(d.date), day) && d.property_id === o.id) ||
+              bookings.some((b: any) =>
+                b.property_id === o.id &&
+                day >= parseISO(b.check_in) &&
+                day < parseISO(b.check_out)
+              )
+            )
 
             return (
               <div
@@ -670,19 +688,23 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                       </span>
                     )}
 
-                    {isCurrentMonth && otherProperty && otherIsOccupied && (
-                      <div className="other-cabin-tag" title={otherProperty.name} style={{
-                        fontSize: '10px',
-                        fontWeight: 700,
-                        padding: '1px 4px',
-                        borderRadius: '3px',
-                        lineHeight: '14px',
-                        backgroundColor: propertyIndex(otherProperty.id) === 0 ? '#ef444422' : '#eab30822',
-                        color: propertyIndex(otherProperty.id) === 0 ? 'var(--danger-strong)' : 'var(--warning)',
-                        border: `1px solid ${propertyIndex(otherProperty.id) === 0 ? '#ef444444' : '#eab30844'}`,
-                        whiteSpace: 'nowrap',
-                      }}>
-                        {otherProperty.name.replace('Cabana ', '').charAt(0)}
+                    {isCurrentMonth && outrasOcupadas.length > 0 && (
+                      <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        {outrasOcupadas.map((o: any) => (
+                          <div key={o.id} className="other-cabin-tag" title={`${o.name} ocupada`} style={{
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            padding: '1px 4px',
+                            borderRadius: '3px',
+                            lineHeight: '14px',
+                            backgroundColor: cor(o.id, ['#ef444422', '#eab30822', '#3b82f622']),
+                            color: cor(o.id, ['var(--danger-strong)', 'var(--warning)', '#3b82f6']),
+                            border: `1px solid ${cor(o.id, ['#ef444444', '#eab30844', '#3b82f644'])}`,
+                            whiteSpace: 'nowrap',
+                          }}>
+                            {siglaCabana(o, outrasCabanas)}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -703,8 +725,8 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                         textOverflow: 'ellipsis',
                         maxWidth: '100%',
                         textAlign: 'center',
-                        backgroundColor: propertyIndex(booking.property_id) === 0 ? 'rgba(124,58,237,0.3)' : 'rgba(249,115,22,0.3)',
-                        color: propertyIndex(booking.property_id) === 0 ? 'var(--accent)' : 'var(--booking)',
+                        backgroundColor: cor(booking.property_id, ['rgba(124,58,237,0.3)', 'rgba(249,115,22,0.3)', 'rgba(20,184,166,0.3)']),
+                        color: cor(booking.property_id, ['var(--accent)', 'var(--booking)', '#14b8a6']),
                         opacity: isPast ? 0.35 : 1,
                       }}>
                         Reservado
@@ -716,9 +738,9 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                         padding: '2px 4px',
                         borderRadius: '4px',
                         fontSize: 'clamp(8px, 1.8vw, 11px)',
-                        backgroundColor: propertyIndex(filterProperty) === 0 ? '#ef444422' : '#eab30822',
-                        color: propertyIndex(filterProperty) === 0 ? 'var(--danger-strong)' : 'var(--warning)',
-                        border: `1px solid ${propertyIndex(filterProperty) === 0 ? '#ef444444' : '#eab30844'}`,
+                        backgroundColor: cor(filterProperty, ['#ef444422', '#eab30822', '#3b82f622']),
+                        color: cor(filterProperty, ['var(--danger-strong)', 'var(--warning)', '#3b82f6']),
+                        border: `1px solid ${cor(filterProperty, ['#ef444444', '#eab30844', '#3b82f644'])}`,
                         textAlign: 'center',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
@@ -800,12 +822,12 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                       <div style={{
                         padding: '12px 16px',
                         borderBottom: '1px solid var(--border)',
-                        borderTop: `3px solid ${idx === 0 ? '#f97b00' : '#7c3aed'}`,
+                        borderTop: `3px solid ${['#f97b00', '#7c3aed', '#14b8a6'][idx % 3]}`,
                         borderRadius: '8px 8px 0 0',
-                        backgroundColor: idx === 0 ? 'rgba(249,123,0,0.05)' : 'rgba(124,58,237,0.05)',
+                        backgroundColor: ['rgba(249,123,0,0.05)', 'rgba(124,58,237,0.05)', 'rgba(20,184,166,0.05)'][idx % 3],
                       }}>
-                        <span style={{ color: idx === 0 ? '#f97b00' : '#7c3aed', fontWeight: 700, fontSize: '14px' }}>
-                          {idx === 0 ? '🟠' : '🟣'} {property.name}
+                        <span style={{ color: ['#f97b00', '#7c3aed', '#14b8a6'][idx % 3], fontWeight: 700, fontSize: '14px' }}>
+                          {['🟠', '🟣', '🟢'][idx % 3]} {property.name}
                         </span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', borderBottom: '1px solid var(--border)' }}>
@@ -854,15 +876,13 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                             day >= parseISO(b.check_in) &&
                             day < parseISO(b.check_out)
                           )
-                          const otherPropertyInUnified = sortedProperties.find((p: any) => p.id !== property.id)
-                          const otherPendingBookingInUnified = otherPropertyInUnified
-                            ? (allBookings || []).find((b: any) =>
-                                seguraAgora(b) &&
-                                b.property_id === otherPropertyInUnified.id &&
-                                day >= parseISO(b.check_in) &&
-                                day < parseISO(b.check_out)
-                              )
-                            : null
+                          const otherPendingBookingInUnified = (allBookings || []).find((b: any) =>
+                            seguraAgora(b) &&
+                            b.property_id !== property.id &&
+                            sortedProperties.some((p: any) => p.id === b.property_id) &&
+                            day >= parseISO(b.check_in) &&
+                            day < parseISO(b.check_out)
+                          )
 
                           const cellBackgroundColor = booking
                             ? colors.booking
@@ -930,7 +950,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
                               {/* Top: day number */}
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 {isTodayDay ? (
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '50%', backgroundColor: idx === 0 ? '#f97b00' : '#7c3aed', color: 'white', fontWeight: 700, fontSize: '12px' }}>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '50%', backgroundColor: ['#f97b00', '#7c3aed', '#14b8a6'][idx % 3], color: 'white', fontWeight: 700, fontSize: '12px' }}>
                                     {format(day, 'd')}
                                   </span>
                                 ) : (
@@ -1053,7 +1073,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
             if (filterProperty !== 'all' && !dayBookings.some((b: any) => b.property_id === filterProperty) && !blocks.some((b: any) => b.property_id === filterProperty)) return null
             return (
               <div key={day.toISOString()} onClick={() => setSelectedDay({ dateStr: format(day, 'yyyy-MM-dd'), dayBookings, blocks })}
-                style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer', borderLeft: blocks.length > 0 ? '3px solid #ef4444' : `3px solid ${propertyIndex(dayBookings[0]?.property_id) === 0 ? '#7c3aed' : '#f97b00'}`, opacity: isPast ? 0.4 : 1 }}>
+                style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer', borderLeft: blocks.length > 0 ? '3px solid #ef4444' : `3px solid ${cor(dayBookings[0]?.property_id, ['#7c3aed', '#f97b00', '#14b8a6'])}`, opacity: isPast ? 0.4 : 1 }}>
                 <div style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: 'var(--purple-dim)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <span style={{ color: 'var(--accent)', fontSize: '18px', fontWeight: 700 }}>{format(day, 'd')}</span>
                   <span style={{ color: 'var(--muted)', fontSize: '9px', textTransform: 'uppercase' }}>{format(day, 'EEE', { locale: ptBR })}</span>
