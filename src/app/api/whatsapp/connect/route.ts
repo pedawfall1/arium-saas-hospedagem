@@ -73,16 +73,25 @@ export async function POST(req: NextRequest) {
       }
 
       const createData = await createRes.json()
-      const generatedToken = createData?.hash?.apikey || createData?.instance?.token || createData?.token || 'unknown_token'
+      // Sem token na resposta, guarda null em vez de um texto inventado que
+      // pareceria uma credencial válida.
+      const generatedToken = createData?.hash?.apikey || createData?.instance?.token || createData?.token || null
 
-      // Save to Supabase
-      await supabase
+      // Save to Supabase. Se isto falhar, a instância JÁ existe na Evolution mas
+      // o painel não sabe: a próxima tentativa tentaria criá-la de novo e
+      // travaria para sempre. Por isso a falha precisa ser reportada.
+      const { error: saveError } = await supabase
         .from('saas_reserva_tenants')
         .update({
           whatsapp_instance_name: instanceName,
           whatsapp_instance_token: generatedToken
         })
         .eq('id', targetTenantId)
+
+      if (saveError) {
+        console.error('Instância criada na Evolution, mas não gravada no banco:', instanceName, saveError)
+        return NextResponse.json({ error: 'A instância foi criada mas não foi salva. Tente conectar de novo.' }, { status: 500 })
+      }
     }
 
     // Fetch/Renew QR code

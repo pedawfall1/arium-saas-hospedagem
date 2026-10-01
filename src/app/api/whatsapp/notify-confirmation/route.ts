@@ -12,7 +12,11 @@ const PLACEHOLDER_PHONE = '00000000000'
 function toWhatsAppNumber(raw: string | null | undefined): string | null {
   const digits = String(raw || '').replace(/\D/g, '')
   if (!digits || digits === PLACEHOLDER_PHONE) return null
-  if (digits.startsWith('55')) return digits.length >= 12 && digits.length <= 13 ? digits : null
+  // Com DDI: 55 + DDD + número = 12 ou 13 dígitos.
+  if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) return digits
+  // Sem DDI: DDD + número = 10 ou 11 dígitos. Vem DEPOIS do teste acima de
+  // propósito: o DDD 55 (Santa Maria/RS) também começa com "55", e antes um
+  // número local desse DDD era recusado como inválido.
   if (digits.length === 10 || digits.length === 11) return `55${digits}`
   return null
 }

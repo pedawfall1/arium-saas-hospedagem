@@ -162,11 +162,11 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
         payment_status: 'fully_paid'
       }]).select()
 
-      console.log('Insert em bookings: ', { data, error })
-
       if (error) {
         throw error
       }
+
+      let avisoBloqueio: string | null = null
 
       // Inserir datas bloqueadas apenas se a reserva der certo
       if (data && data.length > 0) {
@@ -188,15 +188,18 @@ export function NovaReservaClient({ properties, blockedDates = [], bookings = []
           const { error: blockError } = await supabase.from('blocked_dates').insert(datesToBlock)
           if (blockError) {
             console.error('Erro ao bloquear datas:', blockError)
+            // A reserva já existe; sem os bloqueios o calendário mostra as noites
+            // livres. Antes isto só ia pro console e a tela dizia "sucesso".
+            avisoBloqueio = 'Reserva salva, mas as datas NÃO foram marcadas no calendário. Abra a reserva e confira, ou bloqueie as noites pelo Calendário.'
           }
         }
       }
 
       setSuccess(true)
-      setToast({ msg: "Reserva salva com sucesso!", type: 'success' })
+      setToast({ msg: avisoBloqueio ?? "Reserva salva com sucesso!", type: avisoBloqueio ? 'error' : 'success' })
       setTimeout(() => {
         router.push('/dashboard/reservas')
-      }, 1500)
+      }, avisoBloqueio ? 6000 : 1500)
     } catch (err: any) {
       console.error(err)
       const msg = err.message || "Erro desconhecido ao salvar reserva."

@@ -7,6 +7,7 @@ import { RecentBookingsTable } from "@/components/dashboard/RecentBookingsTable"
 import { RevenueChart } from "@/components/dashboard/RevenueChart"
 import { bookingRevenue } from "@/lib/financeiro"
 import { seguraDatas } from "@/lib/hold"
+import { hojeBR, limitesDoMes } from "@/lib/hoje"
 import { PrimeirosPassos } from "@/components/dashboard/PrimeirosPassos"
 
 export const revalidate = 30
@@ -69,9 +70,10 @@ export default async function TenantDashboardPage() {
   // Mesma regra de Relatórios: estadia terminada conta o valor cheio; antes
   // disso, só o que já foi pago. Antes esta conta somava apenas o sinal e
   // agrupava pela data de CRIAÇÃO da reserva, o que subestimava o mês.
-  const hojeStr = new Date().toISOString().slice(0, 10)
-  const inicioMes = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`
-  const fimMes = new Date(currentYear, currentMonth + 1, 0).toISOString().slice(0, 10)
+  // Data e mês de Brasília (o servidor é UTC: depois das 21h já seria "amanhã",
+  // e na noite do dia 1º o painel mostraria o mês seguinte).
+  const hojeStr = hojeBR(now)
+  const { inicio: inicioMes, fim: fimMes } = limitesDoMes(hojeStr)
 
   const revenueThisMonth = bookings
     .filter(b => b.check_in >= inicioMes && b.check_in <= fimMes)
@@ -80,7 +82,7 @@ export default async function TenantDashboardPage() {
   // next checkin
   const futureBookings = bookings.filter(b => b.status === 'confirmed' || b.status === 'checked_in')
     .map(b => ({ ...b, check_in_dt: new Date(b.check_in + "T00:00:00") }))
-    .filter(b => b.check_in_dt.getTime() >= new Date().setHours(0,0,0,0))
+    .filter(b => b.check_in >= hojeStr)
     .sort((a, b) => a.check_in_dt.getTime() - b.check_in_dt.getTime())
     
   const nextCheckin = futureBookings.length > 0 

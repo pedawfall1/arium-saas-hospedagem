@@ -9,6 +9,7 @@ import { Wallet, PlusCircle, Repeat, Trash2, Pencil } from "lucide-react"
 import { MoneyInput } from "@/components/ui/MoneyInput"
 import { parseMoney } from "@/lib/money"
 import { executar } from "@/lib/salvar"
+import { hojeBR } from "@/lib/hoje"
 
 const GERAL = "__geral__"
 
@@ -120,7 +121,7 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
     category_id: '',
     description: '',
     amount: '',
-    date: new Date().toISOString().slice(0, 10),
+    date: hojeBR(),
   }
   const [gasto, setGasto] = useState(gastoVazio)
 
@@ -162,7 +163,7 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
   // booking_id vazio = venda avulsa (visitante que não está hospedado).
   const extraVazio = {
     id: null as string | null, booking_id: '', property_id: GERAL,
-    description: '', amount: '', date: new Date().toISOString().slice(0, 10),
+    description: '', amount: '', date: hojeBR(),
   }
   const [extra, setExtra] = useState(extraVazio)
 

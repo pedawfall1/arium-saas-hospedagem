@@ -7,6 +7,7 @@ import { formatCurrency, formatDate } from "@/lib/utils"
 import { format, parseISO, addDays } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { acharConflitos } from "@/lib/transferencia"
+import { hojeBR } from "@/lib/hoje"
 import { toZonedTime, format as formatTz } from "date-fns-tz"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
@@ -302,7 +303,7 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
   // --- Recebimentos, cortesia e "ainda não recebido" ---
   const [isCourtesy, setIsCourtesy] = useState(!!booking.is_courtesy)
   const [awaiting, setAwaiting] = useState(!!booking.awaiting_settlement)
-  const [novoPg, setNovoPg] = useState({ amount: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', note: '' })
+  const [novoPg, setNovoPg] = useState({ amount: '', date: hojeBR(), method: 'Pix', note: '' })
   const [pgFocused, setPgFocused] = useState(false)
 
   const totalRecebido = payments.reduce((s: number, p: any) => s + Number(p.amount || 0), 0)
@@ -351,7 +352,7 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
       await supabase.from('bookings').update({ awaiting_settlement: false }).eq('id', booking.id)
       setAwaiting(false)
     }
-    setNovoPg({ amount: '', date: new Date().toISOString().slice(0, 10), method: 'Pix', note: '' })
+    setNovoPg({ amount: '', date: hojeBR(), method: 'Pix', note: '' })
     setActionMsg({ text: 'Recebimento registrado.', type: 'ok' })
     router.refresh()
   }
@@ -572,7 +573,7 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
 
   // Estadia encerrada => o restante já foi recebido (mesma regra dos relatórios).
   const estadiaTerminou =
-    booking.check_out <= new Date().toISOString().slice(0, 10) &&
+    booking.check_out <= hojeBR() &&
     ['confirmed', 'checked_in', 'completed'].includes(status)
 
   const checkIn = new Date(booking.check_in)

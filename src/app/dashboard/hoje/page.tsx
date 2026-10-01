@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { HojeClient } from "./HojeClient"
+import { hojeBR, somaDias } from "@/lib/hoje"
 
 export const revalidate = 0
 
@@ -24,12 +25,10 @@ export default async function HojePage() {
   const propertyIds = (properties || []).map(p => p.id)
 
   // Janela curta: ontem até depois de amanhã cobre tudo que a tela mostra.
-  const hoje = new Date()
-  const dia = (offset: number) => {
-    const d = new Date(hoje)
-    d.setDate(d.getDate() + offset)
-    return d.toISOString().slice(0, 10)
-  }
+  // Data de Brasília: o servidor roda em UTC e, depois das 21h, a data UTC já é
+  // a de amanhã (a tela mostrava o dia seguinte como "hoje" à noite).
+  const base = hojeBR()
+  const dia = (offset: number) => somaDias(base, offset)
 
   let bookings: any[] = []
   if (propertyIds.length > 0) {
