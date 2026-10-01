@@ -32,6 +32,13 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
     .eq('booking_id', resolvedParams.id)
     .order('date', { ascending: true })
 
+  // Cabanas desta dona: destinos possíveis ao transferir a reserva.
+  const { data: properties } = await supabase
+    .from('properties')
+    .select('id, name')
+    .eq('tenant_id', tenant.id)
+    .order('name')
+
   const [ { data: blockedDates }, { data: bookings } ] = await Promise.all([
     supabase.from('blocked_dates').select('*').eq('property_id', booking.property_id),
     supabase.from('bookings').select('id, check_in, check_out, property_id, status').eq('property_id', booking.property_id).in('status', ['confirmed', 'checked_in', 'completed'])
@@ -43,6 +50,7 @@ export default async function BookingDetailPage({ params }: { params: Promise<{ 
       tenantName={tenant.business_name}
       userEmail={user.email ?? ''}
       tenantId={tenant.id}
+      properties={properties || []}
       payments={payments || []}
       whatsappConnected={tenant.whatsapp_status === 'connected'}
       blockedDates={blockedDates || []}

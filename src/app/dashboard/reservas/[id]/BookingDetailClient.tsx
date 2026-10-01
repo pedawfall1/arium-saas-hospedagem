@@ -4,8 +4,9 @@ import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { formatCurrency, formatDate } from "@/lib/utils"
-import { format } from "date-fns"
+import { format, parseISO, addDays } from "date-fns"
 import { ptBR } from "date-fns/locale"
+import { acharConflitos } from "@/lib/transferencia"
 import { toZonedTime, format as formatTz } from "date-fns-tz"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
@@ -50,7 +51,7 @@ const editInputStyle = {
   boxSizing: 'border-box' as const,
 }
 
-export function BookingDetailClient({ booking, tenantName, userEmail, whatsappConnected, tenantId, payments = [] }: any) {
+export function BookingDetailClient({ booking, tenantName, userEmail, whatsappConnected, tenantId, payments = [], properties = [] }: any) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -64,14 +65,34 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
   const [newCheckIn, setNewCheckIn] = useState(booking.check_in)
   const [newCheckOut, setNewCheckOut] = useState(booking.check_out)
   const [newTotalAmount, setNewTotalAmount] = useState(booking.total_amount)
+  const [newPropertyId, setNewPropertyId] = useState<string>(booking.property_id)
   const [loadingDates, setLoadingDates] = useState(false)
   const [errorMsg, setErrorMsg] = useState("")
+  const [precoSugerido, setPrecoSugerido] = useState<{ total: number; msg: string } | null>(null)
 
   useEffect(() => {
     setNewCheckIn(booking.check_in)
     setNewCheckOut(booking.check_out)
     setNewTotalAmount(booking.total_amount)
-  }, [booking.check_in, booking.check_out, booking.total_amount])
+    setNewPropertyId(booking.property_id)
+  }, [booking.check_in, booking.check_out, booking.total_amount, booking.property_id])
+
+  // Preço da tabela para o destino escolhido (cabana + datas). Só sugere: o
+  // valor da reserva pode já incluir extras ou um acordo com o hóspede, então
+  // nunca sobrescreve sozinho.
+  const calcularPrecoDestino = async () => {
+    setPrecoSugerido(null)
+    if (!newCheckIn || !newCheckOut || newCheckIn >= newCheckOut) return
+    const { data, error } = await supabase.rpc('calculate_price', {
+      p_property_id: newPropertyId, p_check_in: newCheckIn, p_check_out: newCheckOut,
+    })
+    const total = Number(data?.total)
+    if (error || !data || isNaN(total)) {
+      setPrecoSugerido({ total: NaN, msg: 'Não foi possível calcular o preço da tabela para essas datas.' })
+      return
+    }
+    setPrecoSugerido({ total, msg: '' })
+  }
 
   // Depois de um router.refresh() o servidor manda os valores atuais; sem
   // ressincronizar, a tela continuava exibindo o que foi carregado na abertura.
@@ -377,18 +398,82 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
         throw new Error("Preço total inválido. Use por exemplo 2000 ou 2.000,00.")
       }
 
+      const mudouCabana = newPropertyId !== booking.property_id
+      const nomeCabana = (id: string) => properties.find((p: any) => p.id === id)?.name ?? 'cabana'
+
+      // O banco aceita reservas sobrepostas, então a barreira é aqui: olha o
+      // que já ocupa a cabana de DESTINO naquelas noites (menos esta reserva).
+      const [{ data: reservasDestino, error: e1 }, { data: bloqueiosDestino, error: e2 }] = await Promise.all([
+        supabase.from('bookings')
+          .select('id, guest_name, check_in, check_out, status, created_at, hold_expires_at')
+          .eq('property_id', newPropertyId)
+          .lt('check_in', newCheckOut)
+          .gt('check_out', newCheckIn)
+          .neq('id', booking.id),
+        supabase.from('blocked_dates')
+          .select('date, booking_id, reason')
+          .eq('property_id', newPropertyId)
+          .gte('date', newCheckIn)
+          .lt('date', newCheckOut),
+      ])
+      if (e1 || e2) throw new Error("Não consegui verificar a disponibilidade. Tente de novo.")
+
+      const conflitos = acharConflitos({
+        bookingId: booking.id, checkIn: newCheckIn, checkOut: newCheckOut,
+        reservas: reservasDestino || [], bloqueios: bloqueiosDestino || [], agora: new Date(),
+      })
+      if (conflitos.length > 0) {
+        throw new Error(`${nomeCabana(newPropertyId)} não está livre nessas datas: ${conflitos.join('; ')}.`)
+      }
+
+      // Rastro de quem foi para onde, sem apagar as observações existentes.
+      const hoje = format(new Date(), 'dd/MM/yyyy')
+      const trechos: string[] = []
+      if (mudouCabana) trechos.push(`cabana ${nomeCabana(booking.property_id)} → ${nomeCabana(newPropertyId)}`)
+      if (newCheckIn !== booking.check_in || newCheckOut !== booking.check_out) {
+        trechos.push(`datas ${booking.check_in} → ${booking.check_out} passaram para ${newCheckIn} → ${newCheckOut}`)
+      }
+      const notasAtualizadas = trechos.length > 0
+        ? [notes, `[transferência ${hoje}] ${trechos.join('; ')}.`].filter(Boolean).join('\n')
+        : notes
+
       const { error } = await supabase
         .from('bookings')
         .update({
+          property_id: newPropertyId,
           check_in: newCheckIn,
           check_out: newCheckOut,
-          total_amount: total
+          total_amount: total,
+          notes: notasAtualizadas,
         })
         .eq('id', booking.id)
 
       if (error) throw error
 
+      // Reserva manual grava um bloqueio por noite (booking_id). Se não forem
+      // movidos junto, a cabana/datas ANTIGAS ficam presas e as novas livres.
+      const { data: bloqueiosAntigos, error: eb } = await supabase
+        .from('blocked_dates').select('id, reason, guest_name, source').eq('booking_id', booking.id)
+      if (eb) throw new Error("Reserva transferida, mas não consegui conferir os bloqueios do calendário. Confira pelo Calendário.")
+
+      if (bloqueiosAntigos && bloqueiosAntigos.length > 0) {
+        const modelo = bloqueiosAntigos[0]
+        const novos: any[] = []
+        for (let d = parseISO(newCheckIn); format(d, 'yyyy-MM-dd') < newCheckOut; d = addDays(d, 1)) {
+          novos.push({
+            property_id: newPropertyId, date: format(d, 'yyyy-MM-dd'), booking_id: booking.id,
+            reason: modelo.reason, guest_name: modelo.guest_name, source: modelo.source,
+          })
+        }
+        const rDel = await executar(supabase.from('blocked_dates').delete().eq('booking_id', booking.id))
+        const rIns = rDel.ok ? await executar(supabase.from('blocked_dates').insert(novos)) : rDel
+        if (!rIns.ok) {
+          throw new Error(`Reserva transferida, mas os bloqueios do calendário não foram atualizados: ${rIns.erro} Ajuste pelo Calendário.`)
+        }
+      }
+
       setIsEditingDates(false)
+      setPrecoSugerido(null)
       router.refresh()
     } catch (err: any) {
       setErrorMsg(err.message || "Erro ao transferir reserva.")
@@ -782,13 +867,29 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
                   padding: 0
                 }}
               >
-                🔄 Transferir datas
+                {properties.length > 1 ? '🔄 Transferir datas ou cabana' : '🔄 Transferir datas'}
               </button>
             )}
           </div>
 
           {isEditingDates ? (
             <form onSubmit={handleReschedule} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {properties.length > 1 && (
+                <div>
+                  <label style={labelStyle}>Cabana</label>
+                  <select
+                    value={newPropertyId}
+                    onChange={(e) => { setNewPropertyId(e.target.value); setPrecoSugerido(null) }}
+                    style={editInputStyle}
+                  >
+                    {properties.map((p: any) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}{p.id === booking.property_id ? ' (atual)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label style={labelStyle}>Novo Check-in</label>
                 <input
@@ -834,6 +935,29 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
                   onChange={setNewTotalAmount}
                   style={editInputStyle}
                 />
+                <button
+                  type="button"
+                  onClick={calcularPrecoDestino}
+                  style={{ background: 'none', border: 'none', color: 'var(--purple)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: '6px 0 0' }}
+                >
+                  Ver preço da tabela para {properties.find((p: any) => p.id === newPropertyId)?.name ?? 'esta cabana'}
+                </button>
+                {precoSugerido && (
+                  precoSugerido.msg
+                    ? <p style={{ color: 'var(--muted)', fontSize: '12px', margin: '4px 0 0' }}>{precoSugerido.msg}</p>
+                    : (
+                      <p style={{ color: 'var(--muted)', fontSize: '12px', margin: '4px 0 0' }}>
+                        Tabela: <strong style={{ color: 'var(--text)' }}>{formatCurrency(precoSugerido.total)}</strong>{' '}
+                        <button
+                          type="button"
+                          onClick={() => setNewTotalAmount(String(precoSugerido.total))}
+                          style={{ background: 'none', border: 'none', color: 'var(--purple)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                        >
+                          usar este valor
+                        </button>
+                      </p>
+                    )
+                )}
               </div>
               {errorMsg && (
                 <p style={{ color: 'var(--danger)', fontSize: '13px', margin: 0, fontWeight: 500 }}>{errorMsg}</p>
