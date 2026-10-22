@@ -583,7 +583,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                         ) : (
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
-                              <p style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>{r.label}</p>
+                              <p style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>{r.label}<span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '12px', marginLeft: '6px' }}>{r.valid_from?.slice(0, 4)}</span></p>
                               <p style={{ color: 'var(--muted)', fontSize: '12px' }}>
                                 {descreveNoites(noitesCobertas('regra', r))}
                               </p>
@@ -643,7 +643,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                                 flexDirection: 'column',
                                 gap: '4px'
                               }}>
-                                <p style={{ fontWeight: 600, color: 'var(--text)', fontSize: '14px' }}>{h.name}</p>
+                                <p style={{ fontWeight: 600, color: 'var(--text)', fontSize: '14px' }}>{h.name}<span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '12px', marginLeft: '6px' }}>{h.date_from?.slice(0, 4)}</span></p>
                                 {h.price && (
                                   <span style={{ color: 'var(--violet-soft)', fontWeight: 500, fontSize: '14px' }}>
                                     {formatCurrency(h.price)}
