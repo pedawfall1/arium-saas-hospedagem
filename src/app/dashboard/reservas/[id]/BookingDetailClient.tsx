@@ -10,7 +10,8 @@ import { acharConflitos } from "@/lib/transferencia"
 import { hojeBR } from "@/lib/hoje"
 import { toZonedTime, format as formatTz } from "date-fns-tz"
 import Link from "next/link"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Check, Clock, Pencil, ArrowLeftRight, MessageCircle, CalendarDays, Users } from "lucide-react"
+import { StatusBadge } from "@/components/ui/Badge"
 import { useConfirm } from "@/components/ConfirmModal"
 import { ManualConfirmModal } from "@/components/ManualConfirmModal"
 import { HoldNotice } from "@/components/ui/HoldCountdown"
@@ -18,7 +19,16 @@ import { HOLD_HOURS } from "@/lib/hold"
 import { MoneyInput } from "@/components/ui/MoneyInput"
 import { parseMoney } from "@/lib/money"
 import { executar } from "@/lib/salvar"
-import { BOOKING_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS, bookingStatusLabel, paymentStatusLabel } from "@/lib/statuses"
+import { BOOKING_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS } from "@/lib/statuses"
+
+/** "5549999887766" -> "(49) 99988-7766"; outro formato fica como veio. */
+function formatTelefone(tel: string | null | undefined): string {
+  const d = String(tel || '').replace(/\D/g, '')
+  const local = d.length === 13 && d.startsWith('55') ? d.slice(2) : d
+  if (local.length === 11) return `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`
+  if (local.length === 10) return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`
+  return String(tel || '')
+}
 
 const cardStyle = {
   backgroundColor: 'var(--surface)',
@@ -486,7 +496,7 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
   const handleDelete = async () => {
     if (!(await confirm(
       'Cancelar esta reserva?',
-      'A reserva vai para a aba de Excluídas e as datas ficam livres no site imediatamente. Os dados de contato são mantidos.'
+      'A reserva vai para a aba Canceladas e as datas ficam livres no site imediatamente. Os dados de contato são mantidos.'
     ))) return
     setLoading(true)
     setActionMsg(null)
@@ -580,25 +590,9 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
   const checkOut = new Date(booking.check_out)
   const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
 
-  // Texto via variável de tema (escurece no tema claro); fundo como rgba fixo,
-  // porque o truque `${hex}20` de opacidade não funciona com var().
-  const statusColors: Record<string, { fg: string, bg: string }> = {
-    pending:    { fg: 'var(--warning)',        bg: 'rgba(245,158,11,0.13)' },
-    confirmed:  { fg: 'var(--success-strong)', bg: 'rgba(34,197,94,0.13)' },
-    checked_in: { fg: 'var(--info-strong)',    bg: 'rgba(59,130,246,0.13)' },
-    completed:  { fg: 'var(--neutral-soft)',   bg: 'rgba(107,114,128,0.13)' },
-    cancelled:  { fg: 'var(--danger-strong)',  bg: 'rgba(239,68,68,0.13)' },
-  }
-
-  const paymentStatusColors: Record<string, { fg: string, bg: string }> = {
-    awaiting_deposit: { fg: 'var(--warning)',        bg: 'rgba(245,158,11,0.13)' },
-    deposit_paid:     { fg: 'var(--success-strong)', bg: 'rgba(34,197,94,0.13)' },
-    fully_paid:       { fg: 'var(--info-strong)',    bg: 'rgba(59,130,246,0.13)' },
-    refunded:         { fg: 'var(--neutral-soft)',   bg: 'rgba(148,163,184,0.13)' },
-  }
-
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '1180px', margin: '0 auto' }}>
+      <style>{CSS_DETALHE}</style>
       <ConfirmModal />
       <ManualConfirmModal
         isOpen={showManualConfirm}
@@ -625,14 +619,25 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
         <ArrowLeft size={16} /> Voltar para Reservas
       </Link>
 
-      {/* Header card */}
-      <div style={cardStyle}>
-        <h1 style={{ color: 'var(--text)', fontSize: '24px', fontWeight: 700, marginBottom: '8px' }}>
-          {booking.guest_name}
-        </h1>
-        <p style={{ color: 'var(--muted)', fontSize: '14px' }}>
-          {booking.properties?.name} · {formatDate(booking.check_in)} → {formatDate(booking.check_out)} · {nights} noites
-        </p>
+      {/* Cabeçalho: quem, onde, quando e a situação */}
+      <div style={{ ...cardStyle, padding: '22px 24px' }} className="det-topo">
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
+            <h1 style={{ color: 'var(--text)', fontSize: '24px', fontWeight: 700, margin: 0 }}>{booking.guest_name}</h1>
+            <StatusBadge status={status} />
+            {status !== 'cancelled' && <StatusBadge status={paymentStatus} />}
+          </div>
+          <div className="det-meta">
+            <span><CalendarDays size={15} /> {format(parseISO(booking.check_in), "EEE dd/MM", { locale: ptBR })} → {format(parseISO(booking.check_out), "EEE dd/MM/yyyy", { locale: ptBR })} · {nights} {nights === 1 ? 'noite' : 'noites'}</span>
+            <span>{booking.properties?.name}</span>
+            {booking.guests_count ? <span><Users size={15} /> {booking.guests_count} {booking.guests_count === 1 ? 'hóspede' : 'hóspedes'}</span> : null}
+          </div>
+        </div>
+        {booking.guest_phone && (
+          <button onClick={handleWhatsApp} className="det-btn-wpp">
+            <MessageCircle size={16} /> WhatsApp
+          </button>
+        )}
       </div>
 
       {/* Aviso da trava de 24h (só reservas pendentes) */}
@@ -674,9 +679,10 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
             style={{
               flex: '1 1 240px',
               padding: '12px 16px',
-              backgroundColor: '#22c55e',
+              backgroundColor: '#16a34a',
               border: 'none',
               borderRadius: '10px',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               color: '#fff',
               fontWeight: 600,
               fontSize: '14px',
@@ -684,7 +690,7 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
               opacity: (loading || manualLoading) ? 0.7 : 1,
             }}
           >
-            ✅ Confirmar pagamento manualmente
+            <Check size={16} /> Confirmar pagamento manualmente
           </button>
           <button
             onClick={handleExtendHold}
@@ -693,8 +699,9 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
               flex: '1 1 160px',
               padding: '12px 16px',
               backgroundColor: 'transparent',
-              border: '1px solid var(--border)',
+              border: '1px solid var(--field-border)',
               borderRadius: '10px',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               color: 'var(--text)',
               fontWeight: 600,
               fontSize: '14px',
@@ -702,18 +709,20 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
               opacity: (loading || manualLoading) ? 0.7 : 1,
             }}
           >
-            ⏱️ Estender +{HOLD_HOURS}h
+            <Clock size={16} /> Estender +{HOLD_HOURS}h
           </button>
         </div>
       )}
 
+      <div className="det-grade">
+        <div className="det-principal">
       {/* 2-column grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
         {/* Left card - Guest details */}
         <div style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, margin: 0 }}>
-              Detalhes do Hóspede
+              Hóspede
             </h2>
             {!isEditingGuest ? (
               <button
@@ -728,9 +737,9 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
                   })
                   setIsEditingGuest(true)
                 }}
-                style={{ background: 'none', border: 'none', color: 'var(--purple)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', padding: 0, display: 'inline-flex', alignItems: 'center', gap: '5px' }}
               >
-                ✏️ Editar
+                <Pencil size={13} /> Editar
               </button>
             ) : (
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -819,7 +828,7 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
                   onClick={handleWhatsApp}
                   style={{ color: 'var(--purple)', fontSize: '15px', fontWeight: 500, textDecoration: 'none' }}
                 >
-                  {booking.guest_phone}
+                  {formatTelefone(booking.guest_phone)}
                 </a>
               </div>
               {booking.guest_cpf && (
@@ -848,7 +857,7 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
         <div style={cardStyle}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, margin: 0 }}>
-              Detalhes da Estadia
+              Estadia
             </h2>
             {!isEditingDates && (
               <button
@@ -868,7 +877,7 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
                   padding: 0
                 }}
               >
-                {properties.length > 1 ? '🔄 Transferir datas ou cabana' : '🔄 Transferir datas'}
+                <ArrowLeftRight size={13} /> Transferir
               </button>
             )}
           </div>
@@ -1031,6 +1040,126 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
         </div>
       </div>
 
+      {/* Recebimentos */}
+      <div style={cardStyle}>
+        <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '6px' }}>
+          Recebimentos
+        </h2>
+        <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '18px', lineHeight: 1.5 }}>
+          Registre aqui o dinheiro que realmente entrou. Enquanto houver lançamento, o relatório usa
+          estes valores em vez de deduzir pela data.
+        </p>
+
+        {/* Marcadores */}
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}>
+          <button
+            onClick={() => marcarFlag('is_courtesy', !isCourtesy)}
+            disabled={loading}
+            title="Diária cedida para influencer ou permuta — não entra no faturamento nem no ticket médio"
+            style={{
+              padding: '7px 14px', borderRadius: '999px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+              border: `1px solid ${isCourtesy ? 'rgba(168,85,247,0.4)' : 'var(--border)'}`,
+              backgroundColor: isCourtesy ? 'rgba(168,85,247,0.12)' : 'transparent',
+              color: isCourtesy ? 'var(--violet-mid)' : 'var(--muted)',
+            }}
+          >
+            🎁 Cortesia / permuta {isCourtesy ? '✓' : ''}
+          </button>
+          <button
+            onClick={() => marcarFlag('awaiting_settlement', !awaiting)}
+            disabled={loading || isCourtesy}
+            title="A estadia aconteceu mas o dinheiro ainda não entrou — segura o valor em 'A receber'"
+            style={{
+              padding: '7px 14px', borderRadius: '999px', fontSize: '13px', fontWeight: 600,
+              cursor: isCourtesy ? 'not-allowed' : 'pointer',
+              border: `1px solid ${awaiting ? 'rgba(245,158,11,0.4)' : 'var(--border)'}`,
+              backgroundColor: awaiting ? 'rgba(245,158,11,0.12)' : 'transparent',
+              color: awaiting ? 'var(--warning)' : 'var(--muted)',
+              opacity: isCourtesy ? 0.4 : 1,
+            }}
+          >
+            ⏳ Ainda não recebi {awaiting ? '✓' : ''}
+          </button>
+        </div>
+
+        {isCourtesy ? (
+          <p style={{ color: 'var(--violet-mid)', fontSize: '13px', lineHeight: 1.6, margin: 0 }}>
+            Esta é uma diária cedida. Ela não entra no faturamento nem puxa o ticket médio para baixo,
+            e aparece no relatório como cortesia.
+          </p>
+        ) : (
+          <>
+            {/* Saldo */}
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+              <div style={{ flex: '1 1 150px', backgroundColor: 'var(--field-bg)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 14px' }}>
+                <p style={{ color: 'var(--muted)', fontSize: '12px', marginBottom: '4px' }}>Já recebido</p>
+                <p style={{ color: 'var(--success)', fontSize: '18px', fontWeight: 700 }}>{formatCurrency(totalRecebido)}</p>
+              </div>
+              <div style={{ flex: '1 1 150px', backgroundColor: 'var(--field-bg)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 14px' }}>
+                <p style={{ color: 'var(--muted)', fontSize: '12px', marginBottom: '4px' }}>Em aberto</p>
+                <p style={{ color: saldoAberto > 0 ? 'var(--warning)' : 'var(--muted)', fontSize: '18px', fontWeight: 700 }}>
+                  {formatCurrency(saldoAberto)}
+                </p>
+              </div>
+            </div>
+
+            {/* Lista */}
+            {payments.length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                {payments.map((p: any) => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                    <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: '15px', minWidth: '100px' }}>
+                      {formatCurrency(Number(p.amount))}
+                    </span>
+                    <span style={{ color: 'var(--muted)', fontSize: '13px' }}>{formatDate(p.date)}</span>
+                    {p.method && <span style={{ color: 'var(--muted)', fontSize: '12px', border: '1px solid var(--border)', borderRadius: '4px', padding: '1px 7px' }}>{p.method}</span>}
+                    {p.note && <span style={{ color: 'var(--muted)', fontSize: '12px', flex: 1 }}>{p.note}</span>}
+                    <button onClick={() => apagarRecebimento(p)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '13px' }}>
+                      remover
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Novo recebimento */}
+            <form onSubmit={adicionarRecebimento} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', alignItems: 'end' }}>
+              <div>
+                <label style={labelStyle}>Valor</label>
+                <MoneyInput
+                  value={novoPg.amount}
+                  onChange={v => setNovoPg({ ...novoPg, amount: v })}
+                  style={editInputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Data</label>
+                <input type="date" value={novoPg.date} onChange={e => setNovoPg({ ...novoPg, date: e.target.value })} style={editInputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Forma</label>
+                <select value={novoPg.method} onChange={e => setNovoPg({ ...novoPg, method: e.target.value })} style={editInputStyle}>
+                  {['Pix', 'Dinheiro', 'Cartão', 'Transferência', 'Mercado Pago', 'Outro'].map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Observação</label>
+                <input type="text" value={novoPg.note} onChange={e => setNovoPg({ ...novoPg, note: e.target.value })} placeholder="opcional" style={editInputStyle} />
+              </div>
+              <button type="submit" disabled={loading} style={{
+                padding: '10px 16px', backgroundColor: 'var(--purple)', border: 'none', borderRadius: '8px',
+                color: '#fff', fontWeight: 600, fontSize: '14px', cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.7 : 1,
+              }}>
+                + Registrar
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+
+        </div>
+        <div className="det-lateral">
       {/* Values card */}
       <div style={cardStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -1142,124 +1271,6 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
         )}
       </div>
 
-      {/* Recebimentos */}
-      <div style={cardStyle}>
-        <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '6px' }}>
-          Recebimentos
-        </h2>
-        <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '18px', lineHeight: 1.5 }}>
-          Registre aqui o dinheiro que realmente entrou. Enquanto houver lançamento, o relatório usa
-          estes valores em vez de deduzir pela data.
-        </p>
-
-        {/* Marcadores */}
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '18px' }}>
-          <button
-            onClick={() => marcarFlag('is_courtesy', !isCourtesy)}
-            disabled={loading}
-            title="Diária cedida para influencer ou permuta — não entra no faturamento nem no ticket médio"
-            style={{
-              padding: '7px 14px', borderRadius: '999px', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-              border: `1px solid ${isCourtesy ? 'rgba(168,85,247,0.4)' : 'var(--border)'}`,
-              backgroundColor: isCourtesy ? 'rgba(168,85,247,0.12)' : 'transparent',
-              color: isCourtesy ? 'var(--violet-mid)' : 'var(--muted)',
-            }}
-          >
-            🎁 Cortesia / permuta {isCourtesy ? '✓' : ''}
-          </button>
-          <button
-            onClick={() => marcarFlag('awaiting_settlement', !awaiting)}
-            disabled={loading || isCourtesy}
-            title="A estadia aconteceu mas o dinheiro ainda não entrou — segura o valor em 'A receber'"
-            style={{
-              padding: '7px 14px', borderRadius: '999px', fontSize: '13px', fontWeight: 600,
-              cursor: isCourtesy ? 'not-allowed' : 'pointer',
-              border: `1px solid ${awaiting ? 'rgba(245,158,11,0.4)' : 'var(--border)'}`,
-              backgroundColor: awaiting ? 'rgba(245,158,11,0.12)' : 'transparent',
-              color: awaiting ? 'var(--warning)' : 'var(--muted)',
-              opacity: isCourtesy ? 0.4 : 1,
-            }}
-          >
-            ⏳ Ainda não recebi {awaiting ? '✓' : ''}
-          </button>
-        </div>
-
-        {isCourtesy ? (
-          <p style={{ color: 'var(--violet-mid)', fontSize: '13px', lineHeight: 1.6, margin: 0 }}>
-            Esta é uma diária cedida. Ela não entra no faturamento nem puxa o ticket médio para baixo,
-            e aparece no relatório como cortesia.
-          </p>
-        ) : (
-          <>
-            {/* Saldo */}
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
-              <div style={{ flex: '1 1 150px', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px' }}>
-                <p style={{ color: 'var(--muted)', fontSize: '12px', marginBottom: '4px' }}>Já recebido</p>
-                <p style={{ color: 'var(--success)', fontSize: '18px', fontWeight: 700 }}>{formatCurrency(totalRecebido)}</p>
-              </div>
-              <div style={{ flex: '1 1 150px', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px' }}>
-                <p style={{ color: 'var(--muted)', fontSize: '12px', marginBottom: '4px' }}>Em aberto</p>
-                <p style={{ color: saldoAberto > 0 ? 'var(--warning)' : 'var(--muted)', fontSize: '18px', fontWeight: 700 }}>
-                  {formatCurrency(saldoAberto)}
-                </p>
-              </div>
-            </div>
-
-            {/* Lista */}
-            {payments.length > 0 && (
-              <div style={{ marginBottom: '16px' }}>
-                {payments.map((p: any) => (
-                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-                    <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: '15px', minWidth: '100px' }}>
-                      {formatCurrency(Number(p.amount))}
-                    </span>
-                    <span style={{ color: 'var(--muted)', fontSize: '13px' }}>{formatDate(p.date)}</span>
-                    {p.method && <span style={{ color: 'var(--muted)', fontSize: '12px', border: '1px solid var(--border)', borderRadius: '4px', padding: '1px 7px' }}>{p.method}</span>}
-                    {p.note && <span style={{ color: 'var(--muted)', fontSize: '12px', flex: 1 }}>{p.note}</span>}
-                    <button onClick={() => apagarRecebimento(p)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '13px' }}>
-                      remover
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Novo recebimento */}
-            <form onSubmit={adicionarRecebimento} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', alignItems: 'end' }}>
-              <div>
-                <label style={labelStyle}>Valor</label>
-                <MoneyInput
-                  value={novoPg.amount}
-                  onChange={v => setNovoPg({ ...novoPg, amount: v })}
-                  style={editInputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Data</label>
-                <input type="date" value={novoPg.date} onChange={e => setNovoPg({ ...novoPg, date: e.target.value })} style={editInputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Forma</label>
-                <select value={novoPg.method} onChange={e => setNovoPg({ ...novoPg, method: e.target.value })} style={editInputStyle}>
-                  {['Pix', 'Dinheiro', 'Cartão', 'Transferência', 'Mercado Pago', 'Outro'].map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>Observação</label>
-                <input type="text" value={novoPg.note} onChange={e => setNovoPg({ ...novoPg, note: e.target.value })} placeholder="opcional" style={editInputStyle} />
-              </div>
-              <button type="submit" disabled={loading} style={{
-                padding: '10px 16px', backgroundColor: 'var(--purple)', border: 'none', borderRadius: '8px',
-                color: '#fff', fontWeight: 600, fontSize: '14px', cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.7 : 1,
-              }}>
-                + Registrar
-              </button>
-            </form>
-          </>
-        )}
-      </div>
-
       {/* Status card */}
       <div style={cardStyle}>
         <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>
@@ -1311,34 +1322,9 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
             </select>
           </div>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{
-            padding: '6px 12px',
-            borderRadius: '6px',
-            backgroundColor: statusColors[status]?.bg,
-            color: statusColors[status]?.fg,
-            fontSize: '12px',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-          }}>
-            {bookingStatusLabel(status)}
-          </div>
-          <div style={{
-            padding: '6px 12px',
-            borderRadius: '6px',
-            backgroundColor: paymentStatusColors[paymentStatus]?.bg,
-            color: paymentStatusColors[paymentStatus]?.fg,
-            fontSize: '12px',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-          }}>
-            {paymentStatusLabel(paymentStatus)}
-          </div>
-        </div>
-
         {booking.confirmed_at && (
           <p style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '14px', lineHeight: 1.5 }}>
-            ✍️ Pagamento confirmado manualmente por <strong>{booking.confirmed_by || 'usuário desconhecido'}</strong>{' '}
+            Pagamento confirmado manualmente por <strong>{booking.confirmed_by || 'usuário desconhecido'}</strong>{' '}
             em {formatTz(toZonedTime(new Date(booking.confirmed_at), 'America/Sao_Paulo'), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR, timeZone: 'America/Sao_Paulo' })}.
           </p>
         )}
@@ -1362,6 +1348,8 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
             backgroundColor: 'var(--bg)',
             color: 'var(--text)',
             fontSize: '14px',
+            fontFamily: 'inherit',
+            lineHeight: 1.5,
             resize: 'vertical',
             marginBottom: '12px',
           }}
@@ -1404,7 +1392,7 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
             opacity: loading ? 0.6 : 1,
           }}
         >
-          {loading ? 'Processando...' : '🗑️ Mover para Excluídas'}
+          {loading ? 'Processando...' : 'Cancelar reserva'}
         </button>
       ) : (
         <button
@@ -1424,9 +1412,30 @@ export function BookingDetailClient({ booking, tenantName, userEmail, whatsappCo
             opacity: loading ? 0.6 : 1,
           }}
         >
-          {loading ? 'Restaurando...' : '↩️ Restaurar Reserva'}
+          {loading ? 'Restaurando...' : 'Restaurar reserva'}
         </button>
       )}
+        </div>
+      </div>
     </div>
   )
 }
+
+const CSS_DETALHE = `
+.det-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.det-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 14px; }
+.det-meta span { display: inline-flex; align-items: center; gap: 6px; }
+.det-btn-wpp { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid rgba(37,211,102,0.45); background: rgba(37,211,102,0.1); color: var(--whatsapp); font-size: 14px; font-weight: 600; cursor: pointer; }
+.det-btn-wpp:hover { background: rgba(37,211,102,0.18); }
+.det-grade { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+.det-principal, .det-lateral { min-width: 0; display: flex; flex-direction: column; }
+.det-principal > div, .det-lateral > div { margin-bottom: 16px; }
+.det-principal > div:first-child > div { margin-bottom: 0; }
+@media (max-width: 1023px) {
+  .det-grade { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 767px) {
+  .det-topo h1 { font-size: 20px !important; }
+  .det-btn-wpp { width: 100%; justify-content: center; }
+}
+`
