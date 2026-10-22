@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { useConfirm } from "@/components/ConfirmModal"
-import { Wallet, PlusCircle, Repeat, Trash2, Pencil } from "lucide-react"
+import { Wallet, PlusCircle, Repeat, Trash2, Pencil, ChevronLeft, ChevronRight, TrendingDown, TrendingUp, ArrowDownToLine, X } from "lucide-react"
 import { MoneyInput } from "@/components/ui/MoneyInput"
 import { parseMoney } from "@/lib/money"
 import { executar } from "@/lib/salvar"
@@ -16,7 +16,7 @@ const GERAL = "__geral__"
 const card = {
   backgroundColor: 'var(--surface)',
   border: '1px solid var(--border)',
-  borderRadius: '12px',
+  borderRadius: '16px',
   padding: '24px',
 }
 
@@ -95,18 +95,26 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
   const [mes, setMes] = useState(mesAtual())
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState('')
+  // Formulário de lançamento recolhido até a dona pedir (ou editar uma linha).
+  const [formAberto, setFormAberto] = useState(false)
+
+  const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+  const mudarMes = (delta: number) => {
+    const [a, m] = mes.split('-').map(Number)
+    const d = new Date(a, m - 1 + delta, 1)
+    setMes(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+  const nomeMes = `${MESES[Number(mes.slice(5, 7)) - 1]} ${mes.slice(0, 4)}`
 
   const nomeCabana = (id: string | null) =>
     id === null ? 'Geral (todas)' : properties.find((p: any) => p.id === id)?.name ?? '—'
   const nomeCategoria = (id: string | null) =>
     categories.find((c: any) => c.id === id)?.label ?? '—'
 
-  const doMes = (d: string) => d.startsWith(mes)
+  const gastosMes = useMemo(() => expenses.filter((e: any) => String(e.date).startsWith(mes)), [expenses, mes])
+  const extrasMes = useMemo(() => extras.filter((e: any) => String(e.date).startsWith(mes)), [extras, mes])
 
-  const gastosMes = useMemo(() => expenses.filter((e: any) => doMes(e.date)), [expenses, mes])
-  const extrasMes = useMemo(() => extras.filter((e: any) => doMes(e.date)), [extras, mes])
-
-  const recebimentosMes = useMemo(() => payments.filter((p: any) => doMes(p.date)), [payments, mes])
+  const recebimentosMes = useMemo(() => payments.filter((p: any) => String(p.date).startsWith(mes)), [payments, mes])
   const totalRecebido = recebimentosMes.reduce((s: number, p: any) => s + Number(p.amount || 0), 0)
 
   const totalGastos = gastosMes.reduce((s: number, e: any) => s + Number(e.amount || 0), 0)
@@ -149,6 +157,7 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
     setSaving(false)
     if (error) return setErro(error.message)
     setGasto(gastoVazio)
+    setFormAberto(false)
     router.refresh()
   }
 
@@ -195,6 +204,7 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
     setSaving(false)
     if (error) return setErro(error.message)
     setExtra(extraVazio)
+    setFormAberto(false)
     router.refresh()
   }
 
@@ -240,6 +250,7 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
     setSaving(false)
     if (error) return setErro(error.message)
     setFixa(fixaVazia)
+    setFormAberto(false)
     router.refresh()
   }
 
@@ -260,22 +271,30 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
     router.refresh()
   }
 
-  const tabBtn = (t: typeof tab, texto: string) => (
+  const tabBtn = (t: typeof tab, texto: string, n: number) => (
     <button
-      onClick={() => { setTab(t); setErro('') }}
-      style={{
-        padding: '10px 18px', background: 'none', border: 'none',
-        borderBottom: tab === t ? '2px solid var(--purple)' : '2px solid transparent',
-        color: tab === t ? 'var(--text)' : 'var(--muted)',
-        cursor: 'pointer', fontWeight: tab === t ? 600 : 500, fontSize: '14px',
-      }}
+      onClick={() => { setTab(t); setErro(''); setFormAberto(false) }}
+      className={tab === t ? 'ativa' : ''}
     >
-      {texto}
+      {texto} <span className="fin-contagem">{n}</span>
+    </button>
+  )
+
+  // Botão que abre o formulário; some enquanto ele está aberto.
+  const botaoLancar = (texto: string) => (
+    <button type="button" onClick={() => setFormAberto(true)} className="fin-btn-lancar">
+      <PlusCircle size={16} /> {texto}
+    </button>
+  )
+  const fecharForm = (limpar: () => void) => (
+    <button type="button" onClick={() => { limpar(); setFormAberto(false) }} className="fin-fechar" aria-label="Fechar formulário">
+      <X size={18} />
     </button>
   )
 
   return (
     <div style={{ width: '100%' }}>
+      <style>{CSS_FIN}</style>
       <ConfirmModal />
 
       <h1 style={{ color: 'var(--text)', fontSize: '28px', fontWeight: 700, marginBottom: '6px' }}>
@@ -285,39 +304,39 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
         Lance aqui os gastos e as vendas extras. O resultado aparece em Relatórios como lucro líquido.
       </p>
 
-      {/* Resumo do mês */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        <div style={{ ...card, borderTop: '3px solid var(--danger-strong)' }}>
-          <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '8px' }}>Gastos do mês</p>
-          <p style={{ color: 'var(--danger)', fontSize: '26px', fontWeight: 800 }}>{formatCurrency(totalGastos)}</p>
-        </div>
-        <div style={{ ...card, borderTop: '3px solid var(--success-strong)' }}>
-          <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '8px' }}>Receitas extras do mês</p>
-          <p style={{ color: 'var(--success)', fontSize: '26px', fontWeight: 800 }}>{formatCurrency(totalExtras)}</p>
-        </div>
-        <div style={{ ...card, borderTop: '3px solid var(--info-strong)' }}>
-          <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '8px' }}>Despesas fixas ativas</p>
-          <p style={{ color: 'var(--info)', fontSize: '26px', fontWeight: 800 }}>{formatCurrency(totalFixas)}<span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--muted)' }}>/mês</span></p>
-        </div>
+      {/* Mês */}
+      <div className="fin-mes">
+        <button type="button" onClick={() => mudarMes(-1)} aria-label="Mês anterior"><ChevronLeft size={18} /></button>
+        <strong>{nomeMes}</strong>
+        <button type="button" onClick={() => mudarMes(1)} aria-label="Próximo mês"><ChevronRight size={18} /></button>
+        {mes !== mesAtual() && <button type="button" className="fin-hoje" onClick={() => setMes(mesAtual())}>Mês atual</button>}
       </div>
 
-      {/* Mês de referência */}
-      <div style={{ ...card, marginBottom: '20px', display: 'flex', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 220px' }}>
-          <label style={label}>Mês de referência</label>
-          <input type="month" value={mes} onChange={e => setMes(e.target.value)} style={input} />
-        </div>
-        <p style={{ color: 'var(--muted)', fontSize: '13px', flex: '2 1 320px', lineHeight: 1.5, margin: 0 }}>
-          As despesas fixas do mês atual já entram sozinhas na lista de gastos — não precisa redigitar.
-        </p>
+      {/* Resumo do mês */}
+      <div className="fin-indicadores">
+        {[
+          { rotulo: 'Gastos', valor: totalGastos, Icone: TrendingDown, cor: '#ef4444', sub: `${gastosMes.length} lançamento${gastosMes.length !== 1 ? 's' : ''}` },
+          { rotulo: 'Receitas extras', valor: totalExtras, Icone: TrendingUp, cor: '#22c55e', sub: `${extrasMes.length} venda${extrasMes.length !== 1 ? 's' : ''}` },
+          { rotulo: 'Recebido de reservas', valor: totalRecebido, Icone: ArrowDownToLine, cor: '#3b82f6', sub: `${recebimentosMes.length} recebimento${recebimentosMes.length !== 1 ? 's' : ''}` },
+          { rotulo: 'Despesas fixas', valor: totalFixas, Icone: Repeat, cor: '#8b5cf6', sub: 'por mês, lançadas sozinhas' },
+        ].map(({ rotulo, valor, Icone, cor, sub }) => (
+          <div key={rotulo} className="fin-indicador">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <span className="fin-icone" style={{ backgroundColor: `${cor}1f`, color: cor }}><Icone size={15} /></span>
+              <span style={{ color: 'var(--muted)', fontSize: '13px', fontWeight: 500 }}>{rotulo}</span>
+            </div>
+            <p className="fin-valor">{formatCurrency(valor)}</p>
+            <p style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '4px' }}>{sub}</p>
+          </div>
+        ))}
       </div>
 
       {/* Abas */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
-        {tabBtn('gastos', `Gastos (${gastosMes.length})`)}
-        {tabBtn('extras', `Receitas extras (${extrasMes.length})`)}
-        {tabBtn('recebimentos', `Recebimentos (${recebimentosMes.length})`)}
-        {tabBtn('fixas', `Despesas fixas (${recurring.length})`)}
+      <div className="fin-abas">
+        {tabBtn('gastos', 'Gastos', gastosMes.length)}
+        {tabBtn('extras', 'Receitas extras', extrasMes.length)}
+        {tabBtn('recebimentos', 'Recebimentos', recebimentosMes.length)}
+        {tabBtn('fixas', 'Despesas fixas', recurring.length)}
       </div>
 
       {erro && (
@@ -329,7 +348,9 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
       {/* ================= GASTOS ================= */}
       {tab === 'gastos' && (
         <>
-          <form onSubmit={salvarGasto} style={{ ...card, marginBottom: '20px' }}>
+          {!formAberto && !gasto.id ? botaoLancar('Lançar gasto') : (
+          <form onSubmit={salvarGasto} style={{ ...card, marginBottom: '20px', position: 'relative' }}>
+            {fecharForm(() => setGasto(gastoVazio))}
             <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <PlusCircle size={18} color="var(--purple)" />
               {gasto.id ? 'Editar gasto' : 'Novo gasto'}
@@ -364,12 +385,13 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
               </div>
             </div>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              {gasto.id && <button type="button" onClick={() => setGasto(gastoVazio)} style={btnGhost}>Cancelar</button>}
+              <button type="button" onClick={() => { setFormAberto(false); setGasto(gastoVazio) }} style={btnGhost}>Cancelar</button>
               <button type="submit" disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.7 : 1 }}>
                 {saving ? 'Salvando...' : gasto.id ? 'Salvar alterações' : 'Lançar gasto'}
               </button>
             </div>
           </form>
+          )}
 
           <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
             <div className="tabela-resp-wrap">
@@ -393,13 +415,13 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
                       <td data-col="Categoria" style={{ ...td, color: 'var(--muted)' }}>{nomeCategoria(g.category_id)}</td>
                       <td data-col="Valor" style={{ ...td, color: 'var(--danger)', fontWeight: 600, whiteSpace: 'nowrap' }}>{formatCurrency(Number(g.amount))}</td>
                       <td data-col="" style={{ ...td, whiteSpace: 'nowrap' }}>
-                        <button onClick={() => setGasto({
+                        <button onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setGasto({
                           id: g.id, property_id: g.property_id ?? GERAL, category_id: g.category_id ?? '',
                           description: g.description, amount: String(g.amount), date: g.date,
-                        })} title="Editar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: '4px' }}>
+                        }) }} title="Editar" className="fin-acao">
                           <Pencil size={15} />
                         </button>
-                        <button onClick={() => apagarGasto(g)} title="Apagar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '4px' }}>
+                        <button onClick={() => apagarGasto(g)} title="Apagar" className="fin-acao perigo">
                           <Trash2 size={15} />
                         </button>
                       </td>
@@ -428,7 +450,9 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
       {/* ================= RECEITAS EXTRAS ================= */}
       {tab === 'extras' && (
         <>
-          <form onSubmit={salvarExtra} style={{ ...card, marginBottom: '20px' }}>
+          {!formAberto && !extra.id ? botaoLancar('Lançar receita extra') : (
+          <form onSubmit={salvarExtra} style={{ ...card, marginBottom: '20px', position: 'relative' }}>
+            {fecharForm(() => setExtra(extraVazio))}
             <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <PlusCircle size={18} color="var(--purple)" />
               {extra.id ? 'Editar receita extra' : 'Nova receita extra'}
@@ -469,12 +493,13 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
               </div>
             </div>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              {extra.id && <button type="button" onClick={() => setExtra(extraVazio)} style={btnGhost}>Cancelar</button>}
+              <button type="button" onClick={() => { setFormAberto(false); setExtra(extraVazio) }} style={btnGhost}>Cancelar</button>
               <button type="submit" disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.7 : 1 }}>
                 {saving ? 'Salvando...' : extra.id ? 'Salvar alterações' : 'Lançar receita'}
               </button>
             </div>
           </form>
+          )}
 
           <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
             <div className="tabela-resp-wrap">
@@ -495,13 +520,13 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
                         <td data-col="Cabana" style={td}>{nomeCabana(e.property_id)}</td>
                         <td data-col="Valor" style={{ ...td, color: 'var(--success)', fontWeight: 600, whiteSpace: 'nowrap' }}>{formatCurrency(Number(e.amount))}</td>
                         <td data-col="" style={{ ...td, whiteSpace: 'nowrap' }}>
-                          <button onClick={() => setExtra({
+                          <button onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setExtra({
                             id: e.id, booking_id: e.booking_id ?? '', property_id: e.property_id ?? GERAL,
                             description: e.description, amount: String(e.amount), date: e.date,
-                          })} title="Editar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: '4px' }}>
+                          }) }} title="Editar" className="fin-acao">
                             <Pencil size={15} />
                           </button>
-                          <button onClick={() => apagarExtra(e)} title="Apagar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '4px' }}>
+                          <button onClick={() => apagarExtra(e)} title="Apagar" className="fin-acao perigo">
                             <Trash2 size={15} />
                           </button>
                         </td>
@@ -582,7 +607,9 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
       {/* ================= DESPESAS FIXAS ================= */}
       {tab === 'fixas' && (
         <>
-          <form onSubmit={salvarFixa} style={{ ...card, marginBottom: '20px' }}>
+          {!formAberto && !fixa.id ? botaoLancar('Nova despesa fixa') : (
+          <form onSubmit={salvarFixa} style={{ ...card, marginBottom: '20px', position: 'relative' }}>
+            {fecharForm(() => setFixa(fixaVazia))}
             <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Repeat size={18} color="var(--purple)" />
               {fixa.id ? 'Editar despesa fixa' : 'Nova despesa fixa'}
@@ -621,12 +648,13 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
               </div>
             </div>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              {fixa.id && <button type="button" onClick={() => setFixa(fixaVazia)} style={btnGhost}>Cancelar</button>}
+              <button type="button" onClick={() => { setFormAberto(false); setFixa(fixaVazia) }} style={btnGhost}>Cancelar</button>
               <button type="submit" disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.7 : 1 }}>
                 {saving ? 'Salvando...' : fixa.id ? 'Salvar alterações' : 'Criar despesa fixa'}
               </button>
             </div>
           </form>
+          )}
 
           <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
             <div className="tabela-resp-wrap">
@@ -654,13 +682,13 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
                         </button>
                       </td>
                       <td data-col="" style={{ ...td, whiteSpace: 'nowrap' }}>
-                        <button onClick={() => setFixa({
+                        <button onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setFixa({
                           id: r.id, property_id: r.property_id ?? GERAL, category_id: r.category_id ?? '',
                           description: r.description, amount: String(r.amount), day_of_month: String(r.day_of_month),
-                        })} title="Editar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: '4px' }}>
+                        }) }} title="Editar" className="fin-acao">
                           <Pencil size={15} />
                         </button>
-                        <button onClick={() => apagarFixa(r)} title="Apagar" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', padding: '4px' }}>
+                        <button onClick={() => apagarFixa(r)} title="Apagar" className="fin-acao perigo">
                           <Trash2 size={15} />
                         </button>
                       </td>
@@ -681,3 +709,36 @@ export function FinanceiroClient({ tenantId, properties, categories, expenses, r
     </div>
   )
 }
+
+const CSS_FIN = `
+.fin-mes { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.fin-mes > button:not(.fin-hoje) { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--field-border); background: transparent; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.fin-mes > button:not(.fin-hoje):hover { color: var(--text); border-color: var(--field-border-hover); }
+.fin-mes strong { color: var(--text); font-size: 18px; font-weight: 700; min-width: 150px; text-align: center; }
+.fin-hoje { height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--field-border); background: transparent; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; margin-left: 4px; }
+.fin-indicadores { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+.fin-indicador { background-color: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; min-width: 0; }
+.fin-icone { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0; }
+.fin-valor { color: var(--text); font-size: 21px; font-weight: 700; line-height: 1.2; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fin-abas { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.fin-abas::-webkit-scrollbar { display: none; }
+.fin-abas button { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--muted); font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.fin-abas button:hover { color: var(--text); }
+.fin-abas button.ativa { color: var(--text); font-weight: 600; border-bottom-color: var(--purple); }
+.fin-contagem { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 99px; background-color: rgba(148,163,184,0.15); color: var(--muted); }
+.fin-abas button.ativa .fin-contagem { background-color: rgba(124,58,237,0.18); color: var(--accent); }
+.fin-btn-lancar { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px; margin-bottom: 16px; border-radius: 10px; border: none; background-color: var(--purple); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+.fin-btn-lancar:hover { filter: brightness(1.1); }
+.fin-fechar { position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border-radius: 8px; border: none; background: transparent; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.fin-fechar:hover { background-color: rgba(148,163,184,0.12); color: var(--text); }
+.fin-acao { width: 32px; height: 32px; border-radius: 8px; border: none; background: transparent; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; }
+.fin-acao:hover { background-color: rgba(124,58,237,0.12); color: var(--accent); }
+.fin-acao.perigo:hover { background-color: rgba(239,68,68,0.12); color: var(--danger); }
+@media (max-width: 900px) {
+  .fin-indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+  .fin-btn-lancar { width: 100%; justify-content: center; }
+  .fin-valor { font-size: 18px; }
+}
+`
