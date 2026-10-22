@@ -1,13 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/Button"
-import { Input } from "@/components/ui/Input"
-import { ChevronLeft, ChevronRight, Ban, X } from "lucide-react"
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, isToday, parseISO, isSameDay } from "date-fns"
+import { useState } from "react"
+import { ChevronLeft, ChevronRight, X, Lock, Pencil, CalendarRange, Plus, List, LayoutGrid } from "lucide-react"
+import { format, addMonths, subMonths, addDays, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, isToday, parseISO, differenceInCalendarDays } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { StatusBadge } from "@/components/ui/Badge"
-import { formatDate } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useConfirm } from "@/components/ConfirmModal"
@@ -15,26 +12,46 @@ import { executar } from "@/lib/salvar"
 import { seguraDatas } from "@/lib/hold"
 import { useMinuteTick } from "@/components/ui/HoldCountdown"
 import { precoDoDia } from "@/lib/precoDoDia"
-export function CalendarioClient({ properties, bookings, allBookings, blockedDates, holidays, dailyRates, pricingRules, tenantName }: any) {
-  // Relógio compartilhado: uma pendente só mostra "P" enquanto a trava de 24h
+
+/**
+ * Cor de cada cabana, pela ordem (a 1ª, a 2ª, a 3ª; depois repete).
+ * `texto` usa variável de tema (escurece no tema claro); fundo e borda são
+ * tons translúcidos que funcionam nos dois temas.
+ */
+const CORES_CABANA = [
+  { base: '#f97b00', texto: 'var(--cabin-1)', fundo: 'rgba(249,123,0,0.18)', borda: 'rgba(249,123,0,0.55)' },
+  { base: '#8b5cf6', texto: 'var(--cabin-2)', fundo: 'rgba(139,92,246,0.2)', borda: 'rgba(139,92,246,0.6)' },
+  { base: '#14b8a6', texto: 'var(--cabin-3)', fundo: 'rgba(20,184,166,0.18)', borda: 'rgba(20,184,166,0.55)' },
+]
+
+const DIAS_SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+
+const iso = (d: Date) => format(d, 'yyyy-MM-dd')
+
+const btnBase: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+  height: '38px', padding: '0 14px', borderRadius: '10px',
+  fontSize: '13px', fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap',
+  transition: 'background-color 0.15s, border-color 0.15s, color 0.15s',
+}
+const btnSecundario: React.CSSProperties = {
+  ...btnBase, backgroundColor: 'transparent', color: 'var(--text)', border: '1px solid var(--field-border)',
+}
+const btnPrimario: React.CSSProperties = {
+  ...btnBase, backgroundColor: 'var(--purple)', color: '#fff', border: '1px solid var(--purple)', fontWeight: 600,
+}
+const btnIcone: React.CSSProperties = {
+  ...btnSecundario, width: '38px', padding: 0, color: 'var(--muted)',
+}
+
+export function CalendarioClient({ properties, bookings, allBookings, blockedDates, holidays, dailyRates, pricingRules }: any) {
+  // Relógio compartilhado: uma pendente só aparece enquanto a trava de 24h
   // não venceu. É `null` até montar no cliente, para o HTML do servidor não
   // divergir do navegador (hydration). Ver lib/hold.ts.
   const agora = useMinuteTick()
   /** Mesma condição do banco: pendente que ainda segura a data. */
   const seguraAgora = (b: any) => agora !== null && seguraDatas(b, agora)
-  // Add CSS for mobile-only button
-  useEffect(() => {
-    const style = document.createElement('style')
-    style.textContent = `
-      @media (min-width: 640px) {
-        .mobile-only-btn {
-          display: none !important;
-        }
-      }
-    `
-    document.head.appendChild(style)
-    return () => style.remove()
-  }, [])
+
   const router = useRouter()
   const supabase = createClient()
 
@@ -51,7 +68,7 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
   const [filterProperty, setFilterProperty] = useState<string>(sortedProperties[0]?.id || '')
   const [blockData, setBlockData] = useState({ date: '', property_id: filterProperty, reason: '', guest_name: '' })
   const [loading, setLoading] = useState(false)
-  const [mobileView, setMobileView] = useState<'grid'|'list'>('grid')
+  const [mobileView, setMobileView] = useState<'grid' | 'list'>('grid')
   const [editingBlock, setEditingBlock] = useState<any>(null)
   const [editData, setEditData] = useState({ reason: '', guest_name: '' })
   const [rangeStart, setRangeStart] = useState<string | null>(null)
@@ -62,101 +79,41 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
   const [rangeGuestName, setRangeGuestName] = useState('')
   const { ConfirmModal, confirm } = useConfirm()
 
-  // Unified button styles
-  const headerBtnStyle = {
-    padding: '7px 14px',
-    borderRadius: '8px',
-    fontSize: '13px',
-    fontWeight: 500,
-    cursor: 'pointer',
-    border: '1px solid var(--border)',
-    backgroundColor: 'var(--bg)',
-    color: 'var(--muted)',
-    whiteSpace: 'nowrap' as const,
-    transition: 'all 0.15s',
-  }
-
-  const headerBtnActiveStyle = {
-    ...headerBtnStyle,
-    backgroundColor: 'var(--surface)',
-    color: 'var(--text)',
-    fontWeight: 600,
-    border: '1px solid var(--border)',
-  }
-
-  const primaryBtnStyle = {
-    padding: '7px 16px',
-    borderRadius: '8px',
-    fontSize: '13px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    border: 'none',
-    backgroundColor: 'var(--purple)',
-    color: 'white',
-    whiteSpace: 'nowrap' as const,
-  }
-
-  useEffect(() => {
-    setBlockData(prev => ({ ...prev, property_id: filterProperty }))
-  }, [filterProperty])
-
   const monthStart = startOfMonth(currentMonth)
   const monthEnd = endOfMonth(monthStart)
-  const startDate = startOfWeek(monthStart)
-  const endDate = endOfWeek(monthEnd)
+  const calendarDays = eachDayOfInterval({ start: startOfWeek(monthStart), end: endOfWeek(monthEnd) })
+  const hojeIso = iso(new Date())
 
-  const calendarDays = eachDayOfInterval({ start: startDate, end: endDate })
+  const propertyIndex = (pid: string) => sortedProperties.findIndex((p: any) => p.id === pid)
+  const coresDe = (pid: string) => CORES_CABANA[Math.max(0, propertyIndex(pid)) % CORES_CABANA.length]
 
-  const getDayInfo = (date: Date, propertyId?: string) => {
-    const dayBookings = bookings.filter((b: any) => {
-      if (!['confirmed', 'checked_in', 'completed'].includes(b.status)) return false
-      const targetProperty = propertyId || filterProperty
-      if (targetProperty && b.property_id !== targetProperty) return false
-      const formattedDay = format(date, 'yyyy-MM-dd')
-      return formattedDay >= b.check_in && formattedDay < b.check_out
-    })
-
-    const formattedDate = format(date, 'yyyy-MM-dd')
-    const dayBlocks = blockedDates.filter((b: any) =>
-      b.date === formattedDate && (!propertyId || b.property_id === propertyId)
+  /** Reservas confirmadas e bloqueios de UMA cabana numa data. */
+  const getDayInfo = (date: Date, propertyId: string) => {
+    const d = iso(date)
+    const dayBookings = bookings.filter((b: any) =>
+      ['confirmed', 'checked_in', 'completed'].includes(b.status) &&
+      b.property_id === propertyId && d >= b.check_in && d < b.check_out
     )
-
+    const dayBlocks = blockedDates.filter((b: any) => b.date === d && b.property_id === propertyId)
     return { bookings: dayBookings, blocks: dayBlocks }
   }
 
-  const getAllDayBookings = (date: Date, propertyId?: string) => {
-    const dayBookings = (allBookings || []).filter((b: any) => {
-      if (b.status === 'cancelled') return false
-      const targetProperty = propertyId || filterProperty
-      if (targetProperty && b.property_id !== targetProperty) return false
-      const formattedDay = format(date, 'yyyy-MM-dd')
-      return formattedDay >= b.check_in && formattedDay < b.check_out
-    })
-
-    const formattedDate = format(date, 'yyyy-MM-dd')
-    const dayBlocks = blockedDates.filter((b: any) =>
-      b.date === formattedDate && (!propertyId || b.property_id === propertyId)
+  /** Para o painel do dia: tudo que não foi cancelado (inclui pendentes). */
+  const getAllDayBookings = (date: Date, propertyId: string) => {
+    const d = iso(date)
+    const dayBookings = (allBookings || []).filter((b: any) =>
+      b.status !== 'cancelled' && b.property_id === propertyId && d >= b.check_in && d < b.check_out
     )
-
+    const dayBlocks = blockedDates.filter((b: any) => b.date === d && b.property_id === propertyId)
     return { bookings: dayBookings, blocks: dayBlocks }
   }
 
   const getPriceForDay = (date: Date, propertyId: string): number | null => {
     const property = sortedProperties.find((p: any) => p.id === propertyId)
     if (!property) return null
-
-    // Mesma precedência do calculate_price (ver lib/precoDoDia). Antes o
-    // feriado era lido com date_to INCLUSIVO e o painel mostrava R$550 numa
-    // noite que o site cobrava R$480.
+    // Mesma precedência do calculate_price (ver lib/precoDoDia).
     const doImovel = (lista: any[] | undefined) => (lista || []).filter((x: any) => x.property_id === propertyId)
-    const dia = precoDoDia(
-      format(date, 'yyyy-MM-dd'),
-      property,
-      doImovel(dailyRates),
-      doImovel(pricingRules),
-      doImovel(holidays),
-    )
-
+    const dia = precoDoDia(iso(date), property, doImovel(dailyRates), doImovel(pricingRules), doImovel(holidays))
     // Diária única de dia de semana: é o que o motor cobra numa estadia de 1 noite.
     if (dia.origem === 'semana' && property.single_night_weekday_price != null) {
       return Number(property.single_night_weekday_price)
@@ -164,52 +121,111 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
     return dia.preco
   }
 
-  // Textos usam variáveis de tema (escurecem no tema claro); fundos e bordas
-  // continuam em rgba/hex fixo, pois só tingem levemente e funcionam nos dois.
-  const getCabinColors = (index: number) => {
-    // 3ª cabana em diante (ex.: Edi tem 3): verde-água. Antes tudo que não era a
-    // primeira cabana saía roxo e duas cabanas ficavam indistinguíveis.
-    if (index % 3 === 2) return {
-      booking: 'rgba(20,184,166,0.08)',
-      bookingPill: '#14b8a622',
-      bookingText: '#14b8a6',
-      blocked: 'rgba(59,130,246,0.06)',
-      blockedPill: '#3b82f622',
-      blockedText: '#3b82f6',
-      accent: '#14b8a6',
+  const isBlockedOn = (d: string, pid: string) => blockedDates.some((x: any) => x.date === d && x.property_id === pid)
+
+  /**
+   * O que ocupa a noite, para desenhar a faixa. `inicio`/`fim` dizem se a faixa
+   * começa/termina neste dia (ou quebra na virada da semana/mês) — é o que
+   * deixa uma estadia de várias noites como uma barra contínua.
+   */
+  const ocupacao = (day: Date, pid: string) => {
+    const d = iso(day)
+    const ontem = iso(addDays(day, -1))
+    const amanha = iso(addDays(day, 1))
+    const quebraInicio = day.getDay() === 0 || day.getDate() === 1
+    const quebraFim = day.getDay() === 6 || d === iso(endOfMonth(day))
+
+    const reserva = bookings.find((b: any) =>
+      b.status !== 'cancelled' && b.status !== 'pending' &&
+      b.property_id === pid && d >= b.check_in && d < b.check_out
+    )
+    if (reserva) {
+      return {
+        tipo: 'reserva' as const, item: reserva, texto: reserva.guest_name || 'Reservado',
+        inicio: d === reserva.check_in || quebraInicio,
+        fim: amanha >= reserva.check_out || quebraFim,
+      }
     }
-    if (index % 3 === 0) return {
-      // Doce Encanto — red for blocked
-      booking: 'rgba(249,123,0,0.08)',
-      bookingPill: '#f97b0022',
-      bookingText: 'var(--revenue)',
-      blocked: 'rgba(239,68,68,0.06)',
-      blockedPill: '#ef444422',
-      blockedText: 'var(--danger-strong)',
-      accent: 'var(--revenue)',
+    const bloqueio = blockedDates.find((x: any) => x.date === d && x.property_id === pid)
+    if (bloqueio) {
+      return {
+        tipo: 'bloqueio' as const, item: bloqueio, texto: bloqueio.guest_name || bloqueio.reason || 'Bloqueado',
+        inicio: !isBlockedOn(ontem, pid) || quebraInicio,
+        fim: !isBlockedOn(amanha, pid) || quebraFim,
+      }
     }
-    return {
-      // Vale das Flores — yellow for blocked
-      booking: 'rgba(124,58,237,0.08)',
-      bookingPill: '#7c3aed22',
-      bookingText: '#7c3aed',
-      blocked: 'rgba(234,179,8,0.06)',
-      blockedPill: '#eab30822',
-      blockedText: 'var(--warning)',
-      accent: '#7c3aed',
+    const pendente = (allBookings || []).find((b: any) =>
+      seguraAgora(b) && b.property_id === pid && d >= b.check_in && d < b.check_out
+    )
+    if (pendente) {
+      return {
+        tipo: 'pendente' as const, item: pendente, texto: pendente.guest_name || 'Pendente',
+        inicio: d === pendente.check_in || quebraInicio,
+        fim: amanha >= pendente.check_out || quebraFim,
+      }
+    }
+    return null
+  }
+
+  /** Outras cabanas ocupadas (ou segurando por pendente) neste dia. */
+  const outrasNoDia = (day: Date, pid: string) => {
+    const d = iso(day)
+    return sortedProperties
+      .filter((o: any) => o.id !== pid)
+      .map((o: any) => {
+        const ocupada = isBlockedOn(d, o.id) ||
+          bookings.some((b: any) => b.property_id === o.id && d >= b.check_in && d < b.check_out)
+        const pendente = !ocupada && (allBookings || []).some((b: any) =>
+          seguraAgora(b) && b.property_id === o.id && d >= b.check_in && d < b.check_out)
+        return { cabana: o, ocupada, pendente }
+      })
+      .filter(x => x.ocupada || x.pendente)
+  }
+
+  /** Letra do selo da outra cabana; usa 2 letras se houver iniciais iguais. */
+  const siglaCabana = (p: any) => {
+    const limpa = (n: string) => String(n).replace('Cabana ', '').replace('Chalé ', '').trim()
+    const nome = limpa(p.name)
+    const repetida = sortedProperties.some((o: any) => o.id !== p.id &&
+      limpa(o.name).charAt(0).toLowerCase() === nome.charAt(0).toLowerCase())
+    return repetida ? nome.slice(0, 2) : nome.charAt(0)
+  }
+
+  const handleDayClick = (day: Date, pid: string) => {
+    const dateStr = iso(day)
+    // Seleção de período tem prioridade: nunca abre painel nem formulário.
+    if (rangeMode) {
+      if (!rangeStart || rangeEnd) {
+        setRangeStart(dateStr)
+        setRangeEnd(null)
+      } else if (dateStr < rangeStart) {
+        setRangeEnd(rangeStart)
+        setRangeStart(dateStr)
+      } else {
+        setRangeEnd(dateStr)
+      }
+      return
+    }
+    const { blocks } = getDayInfo(day, pid)
+    const { bookings: todas } = getAllDayBookings(day, pid)
+    if (blocks.length === 0 && todas.length === 0) {
+      setBlockData(prev => ({ ...prev, date: dateStr, property_id: pid }))
+      setShowBlockForm(true)
+    } else {
+      setEditingBlock(null)
+      setSelectedDay({ dateStr, dayBookings: todas, blocks })
     }
   }
 
   const handleBlockSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    const { data, error } = await supabase.from('blocked_dates').insert([{
+    const { error } = await supabase.from('blocked_dates').insert([{
       property_id: blockData.property_id,
       date: blockData.date,
       reason: blockData.reason || null,
       guest_name: blockData.guest_name || null,
     }]).select()
-    console.log('Insert result:', data, error)
     if (error) {
       alert('Erro: ' + error.message)
     } else {
@@ -224,8 +240,8 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
     if (!(await confirm('Desbloquear data', 'Deseja realmente desbloquear esta data?'))) return
     setLoading(true)
     const r = await executar(supabase.from('blocked_dates').delete().eq('id', id))
-    if (!r.ok) { setLoading(false); alert(r.erro); return }
     setLoading(false)
+    if (!r.ok) { alert(r.erro); return }
     setSelectedDay(null)
     router.refresh()
   }
@@ -234,120 +250,201 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
     setLoading(true)
     const { error } = await supabase
       .from('blocked_dates')
-      .update({
-        reason: editData.reason || null,
-        guest_name: editData.guest_name || null,
-      })
+      .update({ reason: editData.reason || null, guest_name: editData.guest_name || null })
       .eq('id', id)
     if (error) {
       alert('Erro: ' + error.message)
     } else {
       setEditingBlock(null)
+      setSelectedDay(null)
       router.refresh()
     }
     setLoading(false)
   }
 
-  const propertyIndex = (pid: string) => sortedProperties.findIndex((p: any) => p.id === pid)
+  const datasDoPeriodo = () => {
+    if (!rangeStart || !rangeEnd) return []
+    return eachDayOfInterval({ start: parseISO(rangeStart), end: parseISO(rangeEnd) }).map(iso)
+  }
 
-  /** Escolhe entre variantes por cabana (a 1ª, a 2ª, a 3ª; depois repete). */
-  const cor = (pid: string, opcoes: [string, string, string]) => {
-    const i = propertyIndex(pid)
-    return opcoes[i >= 0 ? i % 3 : 0]
+  const limparPeriodo = () => {
+    setRangeStart(null); setRangeEnd(null); setRangeMode(false); setRangeReason(''); setRangeGuestName('')
   }
-  /** Letra do selo "ocupada na outra cabana"; usa 2 letras se houver iniciais iguais. */
-  const siglaCabana = (p: any, outras: any[]) => {
-    const nome = String(p.name).replace('Cabana ', '').replace('Chalé ', '').trim()
-    const repetida = outras.some((o: any) => o.id !== p.id &&
-      String(o.name).replace('Cabana ', '').replace('Chalé ', '').trim().charAt(0).toLowerCase() === nome.charAt(0).toLowerCase())
-    return repetida ? nome.slice(0, 2) : nome.charAt(0)
+
+  const bloquearPeriodo = async () => {
+    setLoading(true)
+    const { error } = await supabase.from('blocked_dates').insert(datasDoPeriodo().map(date => ({
+      property_id: filterProperty, date,
+      reason: rangeReason || null, guest_name: rangeGuestName || null,
+    })))
+    setLoading(false)
+    if (error) { alert('Erro: ' + error.message); return }
+    limparPeriodo()
+    router.refresh()
   }
+
+  const desbloquearPeriodo = async () => {
+    if (!(await confirm('Desbloquear período', 'Deseja realmente desbloquear este período?'))) return
+    setLoading(true)
+    const { error } = await supabase.from('blocked_dates').delete()
+      .in('date', datasDoPeriodo()).eq('property_id', filterProperty)
+    setLoading(false)
+    if (error) { alert('Erro: ' + error.message); return }
+    limparPeriodo()
+    router.refresh()
+  }
+
+  // ---------- Desenho de um dia ----------
+
+  const renderDia = (day: Date, pid: string, opts: { compacto?: boolean; mostrarOutras?: boolean }) => {
+    if (!isSameMonth(day, currentMonth)) {
+      return <div key={day.toISOString()} className="cal2-cell cal2-fora" />
+    }
+    const d = iso(day)
+    const passado = d < hojeIso
+    const hoje = isToday(day)
+    const oc = ocupacao(day, pid)
+    const cores = coresDe(pid)
+    const outras = opts.mostrarOutras ? outrasNoDia(day, pid) : []
+    const preco = passado ? null : getPriceForDay(day, pid)
+
+    const noPeriodo = rangeMode && rangeStart && (
+      rangeEnd ? d >= rangeStart && d <= rangeEnd : d === rangeStart
+    )
+    const pontaPeriodo = rangeMode && (d === rangeStart || d === rangeEnd)
+
+    let faixa: React.ReactNode = null
+    if (oc) {
+      const estilo: React.CSSProperties =
+        // Tons translúcidos sobre fundo sólido (var(--surface)): sem isso a
+        // linha entre os dias aparecia por dentro da faixa.
+        oc.tipo === 'reserva'
+          ? { background: `linear-gradient(${cores.fundo}, ${cores.fundo}), var(--surface)`, color: cores.texto, borderColor: cores.borda }
+          : oc.tipo === 'pendente'
+            ? { background: 'linear-gradient(rgba(234,179,8,0.1), rgba(234,179,8,0.1)), var(--surface)', color: 'var(--warning)', borderColor: 'rgba(234,179,8,0.6)', borderStyle: 'dashed' }
+            : { background: 'repeating-linear-gradient(135deg, rgba(148,163,184,0.2) 0 6px, rgba(148,163,184,0.08) 6px 12px), var(--surface)', color: 'var(--text)', borderColor: 'rgba(148,163,184,0.35)' }
+      faixa = (
+        <div
+          className={`cal2-faixa${oc.inicio ? ' ini' : ''}${oc.fim ? ' fim' : ''}`}
+          title={`${oc.tipo === 'reserva' ? 'Reserva' : oc.tipo === 'pendente' ? 'Pendente' : 'Bloqueado'}: ${oc.texto}`}
+          style={estilo}
+        >
+          {oc.inicio && (
+            <>
+              {oc.tipo === 'bloqueio' && <Lock size={11} style={{ flexShrink: 0, opacity: 0.8 }} />}
+              <span className="cal2-faixa-texto">{oc.tipo === 'pendente' ? `Pendente · ${oc.texto}` : oc.texto}</span>
+            </>
+          )}
+        </div>
+      )
+    }
+
+    return (
+      <button
+        type="button"
+        key={day.toISOString()}
+        onClick={() => handleDayClick(day, pid)}
+        className={`cal2-cell${opts.compacto ? ' compacto' : ''}${passado ? ' passado' : ''}${hoje ? ' hoje' : ''}`}
+        style={{
+          ...(noPeriodo ? { backgroundColor: 'rgba(124,58,237,0.16)' } : {}),
+          ...(pontaPeriodo ? { boxShadow: 'inset 0 0 0 2px var(--purple)' } : {}),
+        }}
+        aria-label={format(day, "d 'de' MMMM", { locale: ptBR })}
+      >
+        <div className="cal2-topo">
+          <span className={`cal2-num${hoje ? ' hoje' : ''}`}>{format(day, 'd')}</span>
+          {outras.length > 0 && (
+            <span className="cal2-outras">
+              {outras.map(({ cabana, ocupada }) => {
+                const c = coresDe(cabana.id)
+                return (
+                  <span
+                    key={cabana.id}
+                    title={`${cabana.name} ${ocupada ? 'ocupada' : 'com reserva pendente'}`}
+                    className="cal2-sigla"
+                    style={ocupada
+                      ? { backgroundColor: c.fundo, color: c.texto, borderColor: c.borda }
+                      : { backgroundColor: 'transparent', color: c.texto, borderColor: c.borda, borderStyle: 'dashed', opacity: 0.8 }}
+                  >
+                    {siglaCabana(cabana)}
+                  </span>
+                )
+              })}
+            </span>
+          )}
+        </div>
+        <div className="cal2-meio">{faixa}</div>
+        <div className="cal2-preco">{preco ? `R$ ${preco.toLocaleString('pt-BR')}` : ''}</div>
+      </button>
+    )
+  }
+
+  const renderGrade = (pid: string, opts: { compacto?: boolean; mostrarOutras?: boolean }) => (
+    <>
+      <div className="cal2-semana">
+        {DIAS_SEMANA.map(d => <div key={d}>{d}</div>)}
+      </div>
+      <div className="cal2-grade">
+        {calendarDays.map(day => renderDia(day, pid, opts))}
+      </div>
+    </>
+  )
+
+  // ---------- Lista (celular) ----------
+
+  const diasComAlgo = calendarDays
+    .filter(d => isSameMonth(d, currentMonth))
+    .map(day => ({ day, ...getAllDayBookings(day, filterProperty) }))
+    .filter(x => x.bookings.length > 0 || x.blocks.length > 0)
+
+  const nomeCabana = (pid: string) => sortedProperties.find((p: any) => p.id === pid)?.name
+
+  const corFiltro = coresDe(filterProperty)
 
   return (
     <div style={{ width: '100%' }}>
       <ConfirmModal />
-      <style>{`
-        .cal-cell:hover { background-color: var(--purple-dim) !important; }
-      `}</style>
+      <style>{CSS_CALENDARIO}</style>
+
       <h1 style={{ color: 'var(--text)', fontSize: '28px', fontWeight: 700, marginBottom: '6px' }}>
         Calendário de Ocupação
       </h1>
-      <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '32px' }}>
-        Acompanhe a disponibilidade das cabanas
+      <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '28px' }}>
+        Toque num dia livre para bloquear, ou num dia ocupado para ver os detalhes.
       </p>
 
       {showBlockForm && (
         <>
-          <div
-            onClick={() => setShowBlockForm(false)}
-            style={{
-              position: 'fixed', inset: 0, zIndex: 40,
-              backgroundColor: 'rgba(0,0,0,0.5)',
-              backdropFilter: 'blur(4px)',
-            }}
-          />
+          <div onClick={() => setShowBlockForm(false)} style={{ position: 'fixed', inset: 0, zIndex: 40, backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }} />
           <div style={{
-            position: 'fixed', top: '50%', left: '50%',
-            transform: 'translate(-50%, -50%)',
-            zIndex: 50, width: '90%', maxWidth: '380px',
-            backgroundColor: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: '16px', padding: '24px',
-            boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            zIndex: 50, width: 'calc(100% - 32px)', maxWidth: '400px',
+            backgroundColor: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: '16px', padding: '24px', boxShadow: '0 16px 48px rgba(0,0,0,0.45)',
           }}>
-            <h3 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '20px' }}>
-              Bloquear data
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ color: 'var(--text)', fontSize: '17px', fontWeight: 600 }}>Bloquear data</h3>
+              <button onClick={() => setShowBlockForm(false)} aria-label="Fechar" style={{ ...btnIcone, border: 'none', width: '32px', height: '32px' }}><X size={18} /></button>
+            </div>
             <form onSubmit={handleBlockSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Cabana</label>
-                <select
-                  required
-                  value={blockData.property_id}
-                  onChange={e => setBlockData({...blockData, property_id: e.target.value})}
-                  style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }}
-                >
+              <Campo label="Cabana">
+                <select required value={blockData.property_id} onChange={e => setBlockData({ ...blockData, property_id: e.target.value })} style={campoStyle}>
                   {sortedProperties.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
-              </div>
-              <div>
-                <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>
-                  Nome do hóspede (opcional)
-                </label>
-                <input
-                  type="text"
-                  value={blockData.guest_name}
-                  onChange={e => setBlockData({...blockData, guest_name: e.target.value})}
-                  placeholder="Nome de quem vai reservar..."
-                  style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Data</label>
-                <input
-                  type="date"
-                  required
-                  value={blockData.date}
-                  onChange={e => setBlockData({...blockData, date: e.target.value})}
-                  style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Motivo (opcional)</label>
-                <input 
-                  type="text"
-                  value={blockData.reason}
-                  onChange={e => setBlockData({...blockData, reason: e.target.value})}
-                  placeholder="Manutenção, etc..."
-                  style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none' }}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-                <button type="button" onClick={() => setShowBlockForm(false)} style={{ backgroundColor: 'transparent', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: '8px', padding: '10px 16px', flex: 1, cursor: 'pointer', fontWeight: 500 }}>
-                  Cancelar
-                </button>
-                <button type="submit" disabled={loading} style={{ backgroundColor: 'var(--purple)', border: 'none', color: 'white', borderRadius: '8px', padding: '10px 16px', flex: 1, cursor: 'pointer', fontWeight: 600 }}>
-                  {loading ? 'Salvando...' : 'Confirmar'}
+              </Campo>
+              <Campo label="Data">
+                <input type="date" required value={blockData.date} onChange={e => setBlockData({ ...blockData, date: e.target.value })} style={campoStyle} />
+              </Campo>
+              <Campo label="Nome do hóspede (opcional)">
+                <input type="text" value={blockData.guest_name} onChange={e => setBlockData({ ...blockData, guest_name: e.target.value })} placeholder="Quem vai ficar" style={campoStyle} />
+              </Campo>
+              <Campo label="Motivo (opcional)">
+                <input type="text" value={blockData.reason} onChange={e => setBlockData({ ...blockData, reason: e.target.value })} placeholder="Manutenção, uso próprio..." style={campoStyle} />
+              </Campo>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                <button type="button" onClick={() => setShowBlockForm(false)} style={{ ...btnSecundario, flex: 1, height: '42px' }}>Cancelar</button>
+                <button type="submit" disabled={loading} style={{ ...btnPrimario, flex: 1, height: '42px', opacity: loading ? 0.6 : 1 }}>
+                  {loading ? 'Salvando...' : 'Bloquear'}
                 </button>
               </div>
             </form>
@@ -355,891 +452,247 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
         </>
       )}
 
-      {/* Calendar container */}
-      <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '16px', overflow: 'hidden' }}>
-        
-        {/* Month header - Row 1 */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '14px 16px',
-          borderBottom: '1px solid var(--border)',
-        }}>
-          {/* Left: month title + arrows */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h2 style={{ color: 'var(--text)', fontSize: '18px', fontWeight: 700, textTransform: 'capitalize' }}>
+      <div className="cal2-card">
+        {/* Cabeçalho: mês + navegação | modo */}
+        <div className="cal2-barra">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} style={btnIcone} aria-label="Mês anterior"><ChevronLeft size={18} /></button>
+            <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} style={btnIcone} aria-label="Próximo mês"><ChevronRight size={18} /></button>
+            <h2 style={{ color: 'var(--text)', fontSize: '19px', fontWeight: 700, textTransform: 'capitalize', margin: '0 6px', minWidth: '150px' }}>
               {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
             </h2>
-            <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', width: '32px', height: '32px', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>‹</button>
-            <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', width: '32px', height: '32px', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>›</button>
+            {!isSameMonth(currentMonth, new Date()) && (
+              <button onClick={() => setCurrentMonth(startOfMonth(new Date()))} style={{ ...btnSecundario, height: '32px', fontSize: '12px' }}>Hoje</button>
+            )}
           </div>
 
-          {/* Right: Separado / Unificado toggle only */}
           {sortedProperties.length >= 2 && (
-            <div style={{ display: 'flex', gap: '4px', backgroundColor: 'var(--bg)', borderRadius: '8px', padding: '4px' }}>
-              <button
-                onClick={() => setCalendarMode('split')}
-                style={calendarMode === 'split' ? headerBtnActiveStyle : headerBtnStyle}
-              >
-                Separado
-              </button>
-              <button
-                onClick={() => setCalendarMode('unified')}
-                style={calendarMode === 'unified' ? headerBtnActiveStyle : headerBtnStyle}
-              >
-                Unificado
-              </button>
+            <div className="cal2-segmento">
+              <button onClick={() => setCalendarMode('split')} className={calendarMode === 'split' ? 'ativo' : ''}>Separado</button>
+              <button onClick={() => { setCalendarMode('unified'); limparPeriodo() }} className={calendarMode === 'unified' ? 'ativo' : ''}>Lado a lado</button>
             </div>
           )}
         </div>
 
-        {/* Month header - Row 2 */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-end',
-          gap: '8px',
-          padding: '10px 16px',
-          borderBottom: '1px solid var(--border)',
-          flexWrap: 'wrap',
-        }}>
-          <div style={{ display: 'flex', gap: '8px', flex: '1 1 auto', minWidth: '200px' }}>
-            {/* Lista toggle — mobile only */}
-            <button onClick={() => setMobileView(v => v === 'grid' ? 'list' : 'grid')} className="mobile-only-btn" style={{ ...headerBtnStyle, flex: 1 }}>
-              {mobileView === 'list' ? '📅 Grade' : '📋 Lista'}
-            </button>
+        {/* Cabanas | ações */}
+        <div className="cal2-barra" style={{ paddingTop: 0 }}>
+          {calendarMode === 'split' ? (
+            <div className="cal2-abas">
+              {sortedProperties.map((p: any) => {
+                const c = coresDe(p.id)
+                const ativa = filterProperty === p.id
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => setFilterProperty(p.id)}
+                    className={ativa ? 'ativa' : ''}
+                    style={ativa ? { backgroundColor: c.fundo, color: c.texto, borderColor: c.borda } : undefined}
+                  >
+                    <span className="cal2-ponto" style={{ backgroundColor: c.base }} />
+                    {String(p.name).startsWith('Cabana ')
+                      ? <span><span className="cal2-prefixo">Cabana </span>{String(p.name).slice(7)}</span>
+                      : p.name}
+                  </button>
+                )
+              })}
+            </div>
+          ) : <div />}
 
-            {/* Selecionar período */}
-            <button
-              onClick={() => setRangeMode(!rangeMode)}
-              style={rangeMode ? { ...headerBtnStyle, backgroundColor: 'var(--purple)', color: 'white', border: 'none', fontWeight: 600, flex: 1 } : { ...headerBtnStyle, flex: 1 }}
-            >
-              {rangeMode ? '✕ Cancelar' : 'Selecionar período'}
+          <div className="cal2-acoes">
+            <button onClick={() => setMobileView(v => v === 'grid' ? 'list' : 'grid')} className="cal2-so-celular" style={btnSecundario}>
+              {mobileView === 'list' ? <><LayoutGrid size={15} /> Grade</> : <><List size={15} /> Lista</>}
+            </button>
+            {calendarMode === 'split' && (
+              <button
+                onClick={() => rangeMode ? limparPeriodo() : setRangeMode(true)}
+                style={rangeMode ? { ...btnSecundario, borderColor: 'var(--purple)', color: 'var(--accent)' } : btnSecundario}
+              >
+                {rangeMode ? <><X size={15} /> Cancelar seleção</> : <><CalendarRange size={15} /> Selecionar período</>}
+              </button>
+            )}
+            <button onClick={() => { setBlockData(prev => ({ ...prev, property_id: filterProperty })); setShowBlockForm(true) }} style={btnPrimario}>
+              <Plus size={16} /> Bloquear data
             </button>
           </div>
-
-          {/* + Bloquear data */}
-          <button onClick={() => setShowBlockForm(true)} style={{ ...primaryBtnStyle, flex: '1 1 auto', whiteSpace: 'nowrap' }}>
-            + Bloquear data
-          </button>
         </div>
 
-        {/* Property Filter Bar */}
-        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '8px' }}>
-          {sortedProperties.map((p: any, i: number) => {
-            const cabinColor = ['#f97b00', '#7c3aed', '#14b8a6'][i % 3]
-            return (
-              <button key={p.id} onClick={() => setFilterProperty(p.id)} style={{ padding: '6px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: filterProperty === p.id ? 600 : 500, border: '1px solid transparent', backgroundColor: filterProperty === p.id ? `${cabinColor}20` : 'transparent', color: filterProperty === p.id ? cabinColor : 'var(--muted)', cursor: 'pointer', transition: 'all 0.15s' }}>
-                {p.name}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Range Selection Panel */}
-        {rangeMode && rangeStart && rangeEnd && (
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', backgroundColor: 'rgba(124,58,237,0.05)' }}>
-            <p style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>
-              Bloquear de {formatDate(rangeStart)} até {formatDate(rangeEnd)} para {sortedProperties.find((p: any) => p.id === filterProperty)?.name}
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '12px' }}>
-              <input
-                type="text"
-                value={rangeGuestName}
-                onChange={e => setRangeGuestName(e.target.value)}
-                placeholder="Nome do hóspede (opcional)"
-                style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none', boxSizing: 'border-box' }}
-              />
-              <input
-                type="text"
-                value={rangeReason}
-                onChange={e => setRangeReason(e.target.value)}
-                placeholder="Motivo (opcional)"
-                style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 14px', color: 'var(--text)', fontSize: '14px', width: '100%', outline: 'none', boxSizing: 'border-box' }}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={async () => {
-                  setLoading(true)
-                  const start = new Date(rangeStart)
-                  const end = new Date(rangeEnd)
-                  const dates = []
-                  let current = start
-                  while (current <= end) {
-                    dates.push(format(current, 'yyyy-MM-dd'))
-                    current = new Date(current.getTime() + 86400000)
-                  }
-                  const inserts = dates.map(date => ({
-                    property_id: filterProperty,
-                    date,
-                    reason: rangeReason || null,
-                    guest_name: rangeGuestName || null,
-                  }))
-                  const { error } = await supabase.from('blocked_dates').insert(inserts)
-                  if (error) {
-                    alert('Erro: ' + error.message)
-                  } else {
-                    setRangeStart(null)
-                    setRangeEnd(null)
-                    setRangeMode(false)
-                    setRangeReason('')
-                    setRangeGuestName('')
-                    router.refresh()
-                  }
-                  setLoading(false)
-                }}
-                disabled={loading}
-                style={{ flex: 1, padding: '10px 16px', backgroundColor: 'var(--purple)', border: 'none', borderRadius: '8px', color: 'white', fontWeight: 600, fontSize: '14px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}
-              >
-                {loading ? 'Processando...' : 'Confirmar bloqueio'}
-              </button>
-              <button
-                onClick={async () => {
-                  if (!(await confirm('Desbloquear período', 'Deseja realmente desbloquear este período?'))) return
-                  setLoading(true)
-                  const start = new Date(rangeStart)
-                  const end = new Date(rangeEnd)
-                  const dates = []
-                  let current = start
-                  while (current <= end) {
-                    dates.push(format(current, 'yyyy-MM-dd'))
-                    current = new Date(current.getTime() + 86400000)
-                  }
-                  const { error } = await supabase
-                    .from('blocked_dates')
-                    .delete()
-                    .in('date', dates)
-                    .eq('property_id', filterProperty)
-                  if (error) {
-                    alert('Erro: ' + error.message)
-                  } else {
-                    setRangeStart(null)
-                    setRangeEnd(null)
-                    setRangeMode(false)
-                    setRangeReason('')
-                    setRangeGuestName('')
-                    router.refresh()
-                  }
-                  setLoading(false)
-                }}
-                disabled={loading}
-                style={{ flex: 1, padding: '10px 16px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: 'var(--danger)', fontWeight: 600, fontSize: '14px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}
-              >
-                {loading ? 'Processando...' : 'Desbloquear período'}
-              </button>
-              <button
-                onClick={() => { setRangeStart(null); setRangeEnd(null); setRangeMode(false); setRangeReason(''); setRangeGuestName('') }}
-                style={{ padding: '10px 16px', backgroundColor: 'transparent', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--muted)', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
-              >
-                Cancelar
-              </button>
-            </div>
+        {/* Seleção de período */}
+        {rangeMode && (
+          <div className="cal2-periodo">
+            {!rangeStart || !rangeEnd ? (
+              <p style={{ color: 'var(--muted)', fontSize: '13px' }}>
+                {!rangeStart ? 'Toque no primeiro dia do período.' : 'Agora toque no último dia.'}
+              </p>
+            ) : (
+              <>
+                <p style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>
+                  {format(parseISO(rangeStart), 'dd/MM')} a {format(parseISO(rangeEnd), 'dd/MM/yyyy')} · {differenceInCalendarDays(parseISO(rangeEnd), parseISO(rangeStart)) + 1} dias · {nomeCabana(filterProperty)}
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginBottom: '12px' }}>
+                  <input type="text" value={rangeGuestName} onChange={e => setRangeGuestName(e.target.value)} placeholder="Nome do hóspede (opcional)" style={campoStyle} />
+                  <input type="text" value={rangeReason} onChange={e => setRangeReason(e.target.value)} placeholder="Motivo (opcional)" style={campoStyle} />
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button onClick={bloquearPeriodo} disabled={loading} style={{ ...btnPrimario, opacity: loading ? 0.6 : 1 }}>
+                    <Lock size={14} /> {loading ? 'Processando...' : 'Bloquear período'}
+                  </button>
+                  <button onClick={desbloquearPeriodo} disabled={loading} style={{ ...btnSecundario, color: 'var(--danger)', borderColor: 'rgba(239,68,68,0.4)' }}>
+                    Desbloquear período
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
-        {/* Weekday header row */}
-        <div className={`cal-grid-wrapper${mobileView === 'list' ? ' mobile-list' : ''}`} style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <div style={{ minWidth: '100%' }}>
-            {calendarMode === 'split' ? (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', borderBottom: '1px solid var(--border)' }}>
-                  {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
-                    <div key={day} style={{ padding: '10px 0', textAlign: 'center', color: 'var(--muted)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                      {day}
+        {/* Grade */}
+        <div className={`cal2-grade-wrap${mobileView === 'list' ? ' esconder-no-celular' : ''}`}>
+          {calendarMode === 'split' ? (
+            renderGrade(filterProperty, { mostrarOutras: true })
+          ) : (
+            <div className="cal2-lado-a-lado">
+              {sortedProperties.map((p: any) => {
+                const c = coresDe(p.id)
+                return (
+                  <div key={p.id} className="cal2-coluna">
+                    <div className="cal2-coluna-titulo">
+                      <span className="cal2-ponto" style={{ backgroundColor: c.base }} />
+                      <span style={{ color: c.texto }}>{p.name}</span>
                     </div>
-                  ))}
-                </div>
-
-                {/* Day cells grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
-          {calendarDays.map((day) => {
-            const { bookings: dayBookings, blocks } = getDayInfo(day)
-            const isCurrentMonth = isSameMonth(day, currentMonth)
-            const isTodayDay = isToday(day)
-            const isPast = day < new Date(new Date().setHours(0, 0, 0, 0))
-
-            if (!isCurrentMonth) {
-              return (
-                <div
-                  key={day.toISOString()}
-                  style={{
-                    minHeight: 'clamp(48px, 10vw, 100px)',
-                    borderRight: '1px solid var(--border)',
-                    borderBottom: '1px solid var(--border)',
-                    backgroundColor: 'transparent',
-                    opacity: 0.15,
-                  }}
-                />
-              )
-            }
-
-            const dateStr = format(day, 'yyyy-MM-dd')
-
-            // Determine styling status
-            const booking = bookings.find((b: any) =>
-              b.status !== 'cancelled' &&
-              b.status !== 'pending' &&
-              b.property_id === filterProperty &&
-              day >= parseISO(b.check_in) &&
-              day < parseISO(b.check_out)
-            )
-            const isBlocked = blockedDates.some((d: any) =>
-              isSameDay(parseISO(d.date), day) && d.property_id === filterProperty
-            )
-            const pendingBooking = (allBookings || []).find((b: any) =>
-              seguraAgora(b) &&
-              b.property_id === filterProperty &&
-              day >= parseISO(b.check_in) &&
-              day < parseISO(b.check_out)
-            )
-
-            // Cross-cabin availability check
-            // TODAS as outras cabanas (a dona pode ter 3 ou mais), não só a primeira.
-            const outrasCabanas = sortedProperties.filter((p: any) => p.id !== filterProperty)
-            const otherPendingBooking = (allBookings || []).find((b: any) =>
-              seguraAgora(b) &&
-              b.property_id !== filterProperty &&
-              outrasCabanas.some((o: any) => o.id === b.property_id) &&
-              day >= parseISO(b.check_in) &&
-              day < parseISO(b.check_out)
-            )
-
-            const cellBackgroundColor = booking
-              ? cor(booking.property_id, ['rgba(249,123,0,0.08)', 'rgba(124,58,237,0.08)', 'rgba(20,184,166,0.08)'])
-              : isBlocked
-                ? cor(filterProperty, ['rgba(239,68,68,0.06)', 'rgba(234,179,8,0.06)', 'rgba(59,130,246,0.06)'])
-                : 'transparent'
-
-            // Range selection highlighting
-            const isInRange = rangeMode && rangeStart && rangeEnd && dateStr >= rangeStart && dateStr <= rangeEnd
-            const isRangeStart = rangeMode && dateStr === rangeStart
-            const isRangeEnd = rangeMode && dateStr === rangeEnd
-            // Quais das outras cabanas estão ocupadas (bloqueio ou reserva) neste dia.
-            const outrasOcupadas = outrasCabanas.filter((o: any) =>
-              blockedDates.some((d: any) => isSameDay(parseISO(d.date), day) && d.property_id === o.id) ||
-              bookings.some((b: any) =>
-                b.property_id === o.id &&
-                day >= parseISO(b.check_in) &&
-                day < parseISO(b.check_out)
-              )
-            )
-
-            return (
-              <div
-                key={day.toISOString()}
-                onClick={() => {
-                  // Range mode takes priority — never open detail panel or block form
-                  if (rangeMode) {
-                    if (!rangeStart) {
-                      setRangeStart(dateStr)
-                    } else if (!rangeEnd) {
-                      setRangeEnd(dateStr)
-                    } else {
-                      // Reset and start new range
-                      setRangeStart(dateStr)
-                      setRangeEnd(null)
-                    }
-                    return // Stop here — don't open anything else
-                  }
-
-                  // Normal mode (rangeMode === false)
-                  if (dayBookings.length === 0 && blocks.length === 0) {
-                    setBlockData(prev => ({ ...prev, date: dateStr, property_id: filterProperty }))
-                    setShowBlockForm(true)
-                  } else {
-                    const { bookings: allDayBookings, blocks: allBlocks } = getAllDayBookings(day)
-                    setSelectedDay({ dateStr, dayBookings: allDayBookings, blocks: allBlocks })
-                  }
-                }}
-                className="cal-cell"
-                style={{
-                  minHeight: 'clamp(64px, 13vw, 110px)', padding: '6px 4px',
-                  minWidth: 0,
-                  borderRight: '1px solid var(--border)',
-                  borderBottom: '1px solid var(--border)',
-                  cursor: 'pointer', position: 'relative',
-                  transition: 'background 0.15s',
-                  backgroundColor: cellBackgroundColor,
-                  opacity: isPast ? 0.35 : 1,
-                  filter: isPast ? 'grayscale(0.35)' : 'none',
-                  ...(isInRange && { backgroundColor: 'rgba(124,58,237,0.2)' }),
-                  ...(isRangeStart && { boxShadow: 'inset 0 0 0 2px #7c3aed' }),
-                  ...(isRangeEnd && { boxShadow: 'inset 0 0 0 2px #7c3aed' }),
-                }}
-              >
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  height: '100%',
-                  minHeight: 'clamp(64px, 13vw, 110px)',
-                }}>
-                  {/* Top: day number + cross-cabin tag */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    {isTodayDay ? (
-                      <span className="cal-cell-number" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '50%', backgroundColor: 'var(--purple)', color: 'white', fontWeight: 700, fontSize: '12px' }}>
-                        {format(day, 'd')}
-                      </span>
-                    ) : (
-                      <span className="cal-cell-number" style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text)', opacity: isPast ? 0.35 : 1 }}>
-                        {format(day, 'd')}
-                      </span>
-                    )}
-
-                    {isCurrentMonth && outrasOcupadas.length > 0 && (
-                      <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                        {outrasOcupadas.map((o: any) => (
-                          <div key={o.id} className="other-cabin-tag" title={`${o.name} ocupada`} style={{
-                            fontSize: '10px',
-                            fontWeight: 700,
-                            padding: '1px 4px',
-                            borderRadius: '3px',
-                            lineHeight: '14px',
-                            backgroundColor: cor(o.id, ['#ef444422', '#eab30822', '#3b82f622']),
-                            color: cor(o.id, ['var(--danger-strong)', 'var(--warning)', '#3b82f6']),
-                            border: `1px solid ${cor(o.id, ['#ef444444', '#eab30844', '#3b82f644'])}`,
-                            whiteSpace: 'nowrap',
-                          }}>
-                            {siglaCabana(o, outrasCabanas)}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Middle: empty space (flex-grow) */}
-                  <div style={{ flex: 1 }} />
-
-                  {/* Bottom section: badges + price */}
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
-                    {/* Status badges */}
-                    {booking && (filterProperty === 'all' || booking.property_id === filterProperty) && (
-                      <div style={{
-                        padding: '2px 4px',
-                        borderRadius: '4px',
-                        fontSize: 'clamp(8px, 1.8vw, 11px)',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        maxWidth: '100%',
-                        textAlign: 'center',
-                        backgroundColor: cor(booking.property_id, ['rgba(124,58,237,0.3)', 'rgba(249,115,22,0.3)', 'rgba(20,184,166,0.3)']),
-                        color: cor(booking.property_id, ['var(--accent)', 'var(--booking)', '#14b8a6']),
-                        opacity: isPast ? 0.35 : 1,
-                      }}>
-                        Reservado
-                      </div>
-                    )}
-
-                    {!booking && isBlocked && blocks.some((b: any) => filterProperty === 'all' || b.property_id === filterProperty) && (
-                      <div style={{
-                        padding: '2px 4px',
-                        borderRadius: '4px',
-                        fontSize: 'clamp(8px, 1.8vw, 11px)',
-                        backgroundColor: cor(filterProperty, ['#ef444422', '#eab30822', '#3b82f622']),
-                        color: cor(filterProperty, ['var(--danger-strong)', 'var(--warning)', '#3b82f6']),
-                        border: `1px solid ${cor(filterProperty, ['#ef444444', '#eab30844', '#3b82f644'])}`,
-                        textAlign: 'center',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        maxWidth: '100%',
-                        opacity: isPast ? 0.35 : 1,
-                      }}>
-                        Bloqueado
-                      </div>
-                    )}
-
-                    {!booking && !isBlocked && pendingBooking && (filterProperty === 'all' || pendingBooking.property_id === filterProperty) && (
-                      <div style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 'clamp(20px, 3vw, 28px)',
-                        height: 'clamp(20px, 3vw, 28px)',
-                        borderRadius: '50%',
-                        fontSize: 'clamp(11px, 1.5vw, 13px)',
-                        fontWeight: 800,
-                        backgroundColor: 'rgba(249,115,22,0.2)',
-                        color: 'var(--booking)',
-                        border: '1px solid rgba(249,115,22,0.4)',
-                        opacity: isPast ? 0.35 : 1,
-                      }}>
-                        P
-                      </div>
-                    )}
-
-                    {!booking && !isBlocked && !pendingBooking && otherPendingBooking && (
-                      <div style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 'clamp(20px, 3vw, 28px)',
-                        height: 'clamp(20px, 3vw, 28px)',
-                        borderRadius: '50%',
-                        fontSize: 'clamp(11px, 1.5vw, 13px)',
-                        fontWeight: 800,
-                        backgroundColor: 'rgba(249,115,22,0.1)',
-                        color: 'rgba(251,146,60,0.5)',
-                        border: '1px solid rgba(249,115,22,0.2)',
-                        opacity: isPast ? 0.35 : 1,
-                      }}>
-                        P
-                      </div>
-                    )}
-
-                    {/* Price always at bottom */}
-                    {(() => {
-                      const price = getPriceForDay(day, filterProperty)
-                      if (!price || !isCurrentMonth) return null
-                      return (
-                        <div style={{
-                          fontSize: '11px',
-                          fontWeight: 500,
-                          color: 'var(--muted)',
-                          opacity: isPast ? 0.35 : 1,
-                        }}>
-                          R$ {price.toLocaleString('pt-BR')}
-                        </div>
-                      )
-                    })()}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-                </div>
-              </>
-            ) : (
-              // Unified mode - dual calendar
-              <div style={{ display: 'flex', gap: '16px', padding: '12px', flexWrap: 'wrap' }}>
-                {sortedProperties.map((property: any, idx: number) => {
-                  const colors = getCabinColors(idx)
-                  return (
-                    <div key={property.id} style={{ flex: 1, minWidth: '260px' }}>
-                      <div style={{
-                        padding: '12px 16px',
-                        borderBottom: '1px solid var(--border)',
-                        borderTop: `3px solid ${['#f97b00', '#7c3aed', '#14b8a6'][idx % 3]}`,
-                        borderRadius: '8px 8px 0 0',
-                        backgroundColor: ['rgba(249,123,0,0.05)', 'rgba(124,58,237,0.05)', 'rgba(20,184,166,0.05)'][idx % 3],
-                      }}>
-                        <span style={{ color: ['#f97b00', '#7c3aed', '#14b8a6'][idx % 3], fontWeight: 700, fontSize: '14px' }}>
-                          {['🟠', '🟣', '🟢'][idx % 3]} {property.name}
-                        </span>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', borderBottom: '1px solid var(--border)' }}>
-                        {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
-                          <div key={day} style={{ padding: '10px 0', textAlign: 'center', color: 'var(--muted)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                            {day}
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}>
-                        {calendarDays.map((day) => {
-                          const { bookings: dayBookings, blocks } = getDayInfo(day, property.id)
-                          const isCurrentMonth = isSameMonth(day, currentMonth)
-                          const isTodayDay = isToday(day)
-                          const isPast = day < new Date(new Date().setHours(0, 0, 0, 0))
-                          const dateStr = format(day, 'yyyy-MM-dd')
-
-                          if (!isCurrentMonth) {
-                            return (
-                              <div
-                                key={day.toISOString()}
-                                style={{
-                                  minHeight: 'clamp(48px, 10vw, 100px)',
-                                  borderRight: '1px solid var(--border)',
-                                  borderBottom: '1px solid var(--border)',
-                                  backgroundColor: 'transparent',
-                                  opacity: 0.15,
-                                }}
-                              />
-                            )
-                          }
-
-                          const booking = bookings.find((b: any) =>
-                            b.status !== 'cancelled' &&
-                            b.status !== 'pending' &&
-                            b.property_id === property.id &&
-                            day >= parseISO(b.check_in) &&
-                            day < parseISO(b.check_out)
-                          )
-                          const isBlocked = blockedDates.some((d: any) =>
-                            isSameDay(parseISO(d.date), day) && d.property_id === property.id
-                          )
-                          const pendingBooking = (allBookings || []).find((b: any) =>
-                            seguraAgora(b) &&
-                            b.property_id === property.id &&
-                            day >= parseISO(b.check_in) &&
-                            day < parseISO(b.check_out)
-                          )
-                          const otherPendingBookingInUnified = (allBookings || []).find((b: any) =>
-                            seguraAgora(b) &&
-                            b.property_id !== property.id &&
-                            sortedProperties.some((p: any) => p.id === b.property_id) &&
-                            day >= parseISO(b.check_in) &&
-                            day < parseISO(b.check_out)
-                          )
-
-                          const cellBackgroundColor = booking
-                            ? colors.booking
-                            : isBlocked
-                              ? colors.blocked
-                              : 'transparent'
-
-                          const isInRange = rangeMode && rangeStart && rangeEnd && dateStr >= rangeStart && dateStr <= rangeEnd
-                          const isRangeStart = rangeMode && dateStr === rangeStart
-                          const isRangeEnd = rangeMode && dateStr === rangeEnd
-
-                        return (
-                          <div
-                            key={day.toISOString()}
-                            onClick={() => {
-                              // Range mode takes priority — never open detail panel or block form
-                              if (rangeMode) {
-                                if (!rangeStart) {
-                                  setRangeStart(dateStr)
-                                } else if (!rangeEnd) {
-                                  setRangeEnd(dateStr)
-                                } else {
-                                  // Reset and start new range
-                                  setRangeStart(dateStr)
-                                  setRangeEnd(null)
-                                }
-                                return // Stop here — don't open anything else
-                              }
-
-                              // Normal mode (rangeMode === false)
-                              if (dayBookings.length === 0 && blocks.length === 0) {
-                                setBlockData(prev => ({
-                                  ...prev,
-                                  date: dateStr,
-                                  property_id: property.id,
-                                }))
-                                setShowBlockForm(true)
-                              } else {
-                                const { bookings: allDayBookings, blocks: allBlocks } = getAllDayBookings(day, property.id)
-                                setSelectedDay({ dateStr, dayBookings: allDayBookings, blocks: allBlocks })
-                              }
-                            }}
-                            className="cal-cell"
-                            style={{
-                              minHeight: 'clamp(64px, 13vw, 110px)', padding: '8px',
-                              minWidth: 0,
-                              borderRight: '1px solid var(--border)',
-                              borderBottom: '1px solid var(--border)',
-                              cursor: 'pointer', position: 'relative',
-                              transition: 'background 0.15s',
-                              backgroundColor: cellBackgroundColor,
-                              opacity: isPast ? 0.35 : 1,
-                              ...(isInRange && { backgroundColor: 'rgba(124,58,237,0.2)' }),
-                              ...(isRangeStart && { boxShadow: 'inset 0 0 0 2px #7c3aed' }),
-                              ...(isRangeEnd && { boxShadow: 'inset 0 0 0 2px #7c3aed' }),
-                            }}
-                          >
-                            <div style={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'space-between',
-                              height: '100%',
-                              minHeight: 'clamp(64px, 13vw, 110px)',
-                            }}>
-                              {/* Top: day number */}
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                {isTodayDay ? (
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', borderRadius: '50%', backgroundColor: ['#f97b00', '#7c3aed', '#14b8a6'][idx % 3], color: 'white', fontWeight: 700, fontSize: '12px' }}>
-                                    {format(day, 'd')}
-                                  </span>
-                                ) : (
-                                  <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text)', opacity: isPast ? 0.35 : 1 }}>
-                                    {format(day, 'd')}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Middle: empty space (flex-grow) */}
-                              <div style={{ flex: 1 }} />
-
-                              {/* Bottom section: badges + price */}
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
-                                {/* Status badges */}
-                                {booking && (
-                                  <div style={{
-                                    padding: '2px 6px',
-                                    borderRadius: '4px',
-                                    fontSize: 'clamp(8px, 1.8vw, 11px)',
-                                    whiteSpace: 'nowrap',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    backgroundColor: colors.bookingPill,
-                                    color: colors.bookingText,
-                                    opacity: isPast ? 0.35 : 1,
-                                  }}>
-                                    {booking.guest_name}
-                                  </div>
-                                )}
-
-                                {!booking && isBlocked && (
-                                  <div style={{
-                                    padding: '2px 6px',
-                                    borderRadius: '4px',
-                                    fontSize: 'clamp(8px, 1.8vw, 11px)',
-                                    backgroundColor: colors.blockedPill, color: colors.blockedText,
-                                    border: `1px solid ${colors.accent}44`,
-                                    textAlign: 'center',
-                                    overflow: 'hidden',
-                                    opacity: isPast ? 0.35 : 1,
-                                  }}>
-                                    Bloqueado
-                                  </div>
-                                )}
-
-                                {!booking && !isBlocked && pendingBooking && (
-                                  <div style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    width: 'clamp(20px, 3vw, 28px)',
-                                    height: 'clamp(20px, 3vw, 28px)',
-                                    borderRadius: '50%',
-                                    fontSize: 'clamp(11px, 1.5vw, 13px)',
-                                    fontWeight: 800,
-                                    backgroundColor: 'rgba(249,115,22,0.2)',
-                                    color: 'var(--booking)',
-                                    border: '1px solid rgba(249,115,22,0.4)',
-                                    opacity: isPast ? 0.35 : 1,
-                                  }}>
-                                    P
-                                  </div>
-                                )}
-
-                                {!booking && !isBlocked && !pendingBooking && otherPendingBookingInUnified && (
-                                  <div style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    width: 'clamp(20px, 3vw, 28px)',
-                                    height: 'clamp(20px, 3vw, 28px)',
-                                    borderRadius: '50%',
-                                    fontSize: 'clamp(11px, 1.5vw, 13px)',
-                                    fontWeight: 800,
-                                    backgroundColor: 'rgba(249,115,22,0.1)',
-                                    color: 'rgba(251,146,60,0.5)',
-                                    border: '1px solid rgba(249,115,22,0.2)',
-                                    opacity: isPast ? 0.35 : 1,
-                                  }}>
-                                    P
-                                  </div>
-                                )}
-
-                                {/* Price always at bottom */}
-                                {(() => {
-                                  const price = getPriceForDay(day, property.id)
-                                  if (!price || !isCurrentMonth) return null
-                                  return (
-                                    <div style={{
-                                      fontSize: '11px',
-                                      fontWeight: 500,
-                                      color: 'var(--muted)',
-                                      opacity: isPast ? 0.35 : 1,
-                                    }}>
-                                      R$ {price.toLocaleString('pt-BR')}
-                                    </div>
-                                  )
-                                })()}
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
+                    {renderGrade(p.id, { compacto: true })}
                   </div>
                 )
-                })}
-              </div>
-            )}
-          </div>
+              })}
+            </div>
+          )}
         </div>
 
-        {/* List View (Mobile) */}
-        <div className="cal-list-view" style={{ display: mobileView === 'list' ? 'block' : 'none' }}>
-          {calendarDays.filter(d => isSameMonth(d, currentMonth)).map(day => {
-            const { bookings: dayBookings, blocks } = getDayInfo(day)
-            const isPast = day < new Date(new Date().setHours(0, 0, 0, 0))
-            if (dayBookings.length === 0 && blocks.length === 0) return null
-            if (filterProperty !== 'all' && !dayBookings.some((b: any) => b.property_id === filterProperty) && !blocks.some((b: any) => b.property_id === filterProperty)) return null
-            return (
-              <div key={day.toISOString()} onClick={() => setSelectedDay({ dateStr: format(day, 'yyyy-MM-dd'), dayBookings, blocks })}
-                style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer', borderLeft: blocks.length > 0 ? '3px solid #ef4444' : `3px solid ${cor(dayBookings[0]?.property_id, ['#7c3aed', '#f97b00', '#14b8a6'])}`, opacity: isPast ? 0.4 : 1 }}>
-                <div style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: 'var(--purple-dim)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ color: 'var(--accent)', fontSize: '18px', fontWeight: 700 }}>{format(day, 'd')}</span>
-                  <span style={{ color: 'var(--muted)', fontSize: '9px', textTransform: 'uppercase' }}>{format(day, 'EEE', { locale: ptBR })}</span>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  {dayBookings.map((b: any) => <p key={b.id} style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600, marginBottom: '2px' }}>{b.guest_name}</p>)}
-                  {blocks.map((b: any) => (
-                    <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ minWidth: 0 }}>
-                        {b.guest_name && (
-                          <p style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600, marginBottom: '2px' }}>{b.guest_name}</p>
-                        )}
-                        <p style={{ color: 'var(--danger)', fontSize: '13px' }}>{b.reason || 'Bloqueado'}{isPast && (
-                          <span style={{ fontSize: '10px', color: 'var(--muted)', backgroundColor: 'var(--bg)', borderRadius: '4px', padding: '1px 5px', marginLeft: '6px' }}>
-                            passado
-                          </span>
-                        )}</p>
-                      </div>
-                      <button
-                        onClick={e => {
-                          e.stopPropagation()
-                          setEditingBlock(b.id)
-                          setEditData({ reason: b.reason || '', guest_name: b.guest_name || '' })
-                          setSelectedDay({ dateStr: format(day, 'yyyy-MM-dd'), dayBookings: [], blocks: [b] })
-                        }}
-                        style={{ backgroundColor: 'transparent', border: 'none', color: 'var(--muted)', fontSize: '12px', cursor: 'pointer', flexShrink: 0, paddingLeft: '8px' }}
-                      >
-                        ✏️
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
+        {/* Lista (celular) */}
+        {mobileView === 'list' && (
+          <div className="cal2-lista">
+            {diasComAlgo.length === 0 && (
+              <p style={{ color: 'var(--muted)', fontSize: '14px', padding: '24px 16px', textAlign: 'center' }}>
+                Nenhuma reserva ou bloqueio em {format(currentMonth, 'MMMM', { locale: ptBR })} na {nomeCabana(filterProperty)}.
+              </p>
+            )}
+            {diasComAlgo.map(({ day, bookings: bs, blocks }) => {
+              const passado = iso(day) < hojeIso
+              return (
+                <button
+                  key={day.toISOString()}
+                  type="button"
+                  onClick={() => { setEditingBlock(null); setSelectedDay({ dateStr: iso(day), dayBookings: bs, blocks }) }}
+                  className="cal2-lista-item"
+                  style={{ opacity: passado ? 0.5 : 1 }}
+                >
+                  <div className="cal2-lista-data" style={isToday(day) ? { backgroundColor: 'var(--purple)', color: '#fff' } : undefined}>
+                    <span style={{ fontSize: '18px', fontWeight: 700, lineHeight: 1 }}>{format(day, 'd')}</span>
+                    <span style={{ fontSize: '10px', textTransform: 'uppercase', opacity: 0.8 }}>{format(day, 'EEE', { locale: ptBR }).replace('.', '')}</span>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                    {bs.map((b: any) => (
+                      <p key={b.id} style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="cal2-ponto" style={{ backgroundColor: b.status === 'pending' ? '#eab308' : corFiltro.base }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.guest_name}</span>
+                        {b.status === 'pending' && <span style={{ color: 'var(--warning)', fontSize: '12px', fontWeight: 500 }}>pendente</span>}
+                      </p>
+                    ))}
+                    {blocks.map((b: any) => (
+                      <p key={b.id} style={{ color: 'var(--muted)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Lock size={12} /> {b.guest_name || b.reason || 'Bloqueado'}
+                      </p>
+                    ))}
+                  </div>
+                  <ChevronRight size={16} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Legenda */}
+        <div className="cal2-legenda">
+          <span><i style={{ backgroundColor: corFiltro.fundo, borderColor: corFiltro.borda }} /> Reservado</span>
+          <span><i style={{ backgroundColor: 'rgba(234,179,8,0.1)', borderColor: 'rgba(234,179,8,0.6)', borderStyle: 'dashed' }} /> Pendente</span>
+          <span><i style={{ background: 'repeating-linear-gradient(135deg, rgba(148,163,184,0.3) 0 3px, rgba(148,163,184,0.1) 3px 6px)', borderColor: 'rgba(148,163,184,0.35)' }} /> Bloqueado</span>
+          {calendarMode === 'split' && sortedProperties.length >= 2 && (
+            <span style={{ color: 'var(--muted)' }}>
+              Letra no canto = outra cabana ocupada ({sortedProperties.filter((p: any) => p.id !== filterProperty).map((p: any) => `${siglaCabana(p)}: ${String(p.name).replace('Cabana ', '')}`).join(', ')})
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Inline Detail Panel */}
+      {/* Painel do dia */}
       {selectedDay && (selectedDay.dayBookings.length > 0 || selectedDay.blocks.length > 0) && (
-        <div className="mt-6 rounded-xl p-6 relative" style={{ backgroundColor: 'var(--bg)', border: 'none', marginTop: '24px' }}>
-          <button
-            onClick={() => setSelectedDay(null)}
-            style={{
-              position: 'absolute', top: '16px', right: '16px',
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--muted)', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', padding: '4px', lineHeight: 1,
-            }}
-          >
-            <X size={20} />
-          </button>
-          <h3 className="text-lg font-bold mb-4" style={{ color: 'var(--text)', marginBottom: '20px' }}>
-            Data: {format(parseISO(selectedDay.dateStr), 'dd/MM/yyyy')}
-          </h3>
-          
-          <div className="flex flex-col gap-4">
-            {selectedDay.dayBookings.map((b: any) => (
-              <div key={b.id} style={{ border: '1px solid rgba(249,115,22,0.5)', backgroundColor: 'rgba(249,115,22,0.25)', borderRadius: '12px', padding: '16px', borderLeft: '4px solid #f97316' }}>
-                <div className="flex justify-between items-start mb-3">
-                  <p className="font-semibold text-lg" style={{ color: 'var(--booking-title)' }}>{b.guest_name}</p>
-                  <StatusBadge status={b.status} />
+        <div className="cal2-painel">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ color: 'var(--text)', fontSize: '18px', fontWeight: 700 }}>
+              {(() => {
+                const t = format(parseISO(selectedDay.dateStr), "EEEE, d 'de' MMMM", { locale: ptBR })
+                return t.charAt(0).toUpperCase() + t.slice(1)
+              })()}
+            </h3>
+            <button onClick={() => setSelectedDay(null)} aria-label="Fechar" style={{ ...btnIcone, border: 'none' }}><X size={20} /></button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))', gap: '12px' }}>
+            {selectedDay.dayBookings.map((b: any) => {
+              const c = coresDe(b.property_id)
+              const noites = differenceInCalendarDays(parseISO(b.check_out), parseISO(b.check_in))
+              return (
+                <div key={b.id} className="cal2-cartao" style={{ borderLeftColor: b.status === 'pending' ? '#eab308' : c.base }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
+                    <p style={{ color: 'var(--text)', fontWeight: 600, fontSize: '16px' }}>{b.guest_name}</p>
+                    <StatusBadge status={b.status} />
+                  </div>
+                  <p style={{ color: c.texto, fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>{b.properties?.name || nomeCabana(b.property_id)}</p>
+                  <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '14px' }}>
+                    {format(parseISO(b.check_in), 'EEE dd/MM', { locale: ptBR })} → {format(parseISO(b.check_out), 'EEE dd/MM', { locale: ptBR })} · {noites} {noites === 1 ? 'noite' : 'noites'}
+                  </p>
+                  <button onClick={() => router.push(`/dashboard/reservas/${b.id}`)} style={{ ...btnSecundario, width: '100%' }}>
+                    Ver reserva completa
+                  </button>
                 </div>
-                <p className="text-sm mb-1" style={{ color: 'var(--booking-sub)' }}>
-                  {b.properties?.name || sortedProperties.find((p:any) => p.id === b.property_id)?.name}
-                </p>
-                <p className="text-sm mb-4" style={{ color: 'var(--booking-text)' }}>
-                  Entra: {formatDate(b.check_in)} | Sai: {formatDate(b.check_out)}
-                </p>
-                <Button
-                  onClick={() => router.push(`/dashboard/reservas/${b.id}`)}
-                  style={{
-                    width: '100%',
-                    backgroundColor: 'rgba(249,115,22,0.3)',
-                    border: '1px solid rgba(249,115,22,0.7)',
-                    color: 'var(--booking)',
-                    borderRadius: '8px',
-                    padding: '8px 16px',
-                    fontSize: '13px',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(249,115,22,0.4)'
-                    e.currentTarget.style.borderColor = '#fb923c'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(249,115,22,0.3)'
-                    e.currentTarget.style.borderColor = 'rgba(249,115,22,0.7)'
-                  }}
-                >
-                  Ver Reserva Completa
-                </Button>
-              </div>
-            ))}
+              )
+            })}
 
             {selectedDay.blocks.map((block: any) => (
-              <div key={block.id} style={{ border: '1px solid rgba(239,68,68,0.3)', backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: '12px', padding: '16px' }}>
-                
+              <div key={block.id} className="cal2-cartao" style={{ borderLeftColor: 'rgba(148,163,184,0.7)' }}>
                 {editingBlock === block.id ? (
-                  // EDIT MODE
                   <>
-                    <p style={{ color: 'var(--danger)', fontWeight: 600, fontSize: '15px', marginBottom: '12px' }}>Editar bloqueio</p>
+                    <p style={{ color: 'var(--text)', fontWeight: 600, fontSize: '15px', marginBottom: '12px' }}>Editar bloqueio</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '12px' }}>
-                      <input
-                        type="text"
-                        value={editData.guest_name}
-                        onChange={e => setEditData(prev => ({ ...prev, guest_name: e.target.value }))}
-                        placeholder="Nome do hóspede..."
-                        style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text)', fontSize: '13px', width: '100%', outline: 'none', boxSizing: 'border-box' }}
-                      />
-                      <input
-                        type="text"
-                        value={editData.reason}
-                        onChange={e => setEditData(prev => ({ ...prev, reason: e.target.value }))}
-                        placeholder="Motivo..."
-                        style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 12px', color: 'var(--text)', fontSize: '13px', width: '100%', outline: 'none', boxSizing: 'border-box' }}
-                      />
+                      <input type="text" value={editData.guest_name} onChange={e => setEditData(prev => ({ ...prev, guest_name: e.target.value }))} placeholder="Nome do hóspede" style={campoStyle} />
+                      <input type="text" value={editData.reason} onChange={e => setEditData(prev => ({ ...prev, reason: e.target.value }))} placeholder="Motivo" style={campoStyle} />
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        onClick={() => setEditingBlock(null)}
-                        style={{ flex: 1, padding: '8px', backgroundColor: 'transparent', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--muted)', fontSize: '13px', cursor: 'pointer' }}
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        onClick={() => handleEditBlock(block.id)}
-                        disabled={loading}
-                        style={{ flex: 1, padding: '8px', backgroundColor: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: 'var(--danger)', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
-                      >
+                      <button onClick={() => setEditingBlock(null)} style={{ ...btnSecundario, flex: 1 }}>Cancelar</button>
+                      <button onClick={() => handleEditBlock(block.id)} disabled={loading} style={{ ...btnPrimario, flex: 1, opacity: loading ? 0.6 : 1 }}>
                         {loading ? 'Salvando...' : 'Salvar'}
                       </button>
                     </div>
                   </>
                 ) : (
-                  // VIEW MODE
                   <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <p style={{ color: 'var(--danger)', fontWeight: 600, fontSize: '15px' }}>Data Bloqueada</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                      <p style={{ color: 'var(--text)', fontWeight: 600, fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Lock size={15} style={{ color: 'var(--muted)' }} /> {block.guest_name || 'Data bloqueada'}
+                      </p>
                       <button
-                        onClick={() => {
-                          setEditingBlock(block.id)
-                          setEditData({ reason: block.reason || '', guest_name: block.guest_name || '' })
-                        }}
-                        style={{ backgroundColor: 'transparent', border: 'none', color: 'var(--muted)', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
+                        onClick={() => { setEditingBlock(block.id); setEditData({ reason: block.reason || '', guest_name: block.guest_name || '' }) }}
+                        style={{ ...btnIcone, width: '32px', height: '32px' }}
+                        aria-label="Editar bloqueio" title="Editar bloqueio"
                       >
-                        ✏️ Editar
+                        <Pencil size={14} />
                       </button>
                     </div>
-                    <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>
-                      Cabana: {properties.find((p: any) => p.id === block.property_id)?.name}
+                    <p style={{ color: coresDe(block.property_id).texto, fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>{nomeCabana(block.property_id)}</p>
+                    <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '14px' }}>
+                      {block.reason ? `Motivo: ${block.reason}` : 'Sem motivo informado'}
                     </p>
-                    {block.guest_name && (
-                      <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Hóspede: {block.guest_name}</p>
-                    )}
-                    {block.reason && (
-                      <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '16px' }}>Motivo: {block.reason}</p>
-                    )}
-                    <button
-                      onClick={() => handleUnblock(block.id)}
-                      disabled={loading}
-                      style={{ width: '100%', padding: '10px', backgroundColor: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', color: 'var(--danger)', fontWeight: 600, fontSize: '13px', cursor: 'pointer', marginTop: (!block.guest_name && !block.reason) ? '12px' : '0' }}
-                    >
-                      {loading ? 'Processando...' : '🔓 Desbloquear esta data'}
+                    <button onClick={() => handleUnblock(block.id)} disabled={loading} style={{ ...btnSecundario, width: '100%', color: 'var(--danger)', borderColor: 'rgba(239,68,68,0.4)' }}>
+                      {loading ? 'Processando...' : 'Desbloquear esta data'}
                     </button>
                   </>
                 )}
@@ -1251,3 +704,157 @@ export function CalendarioClient({ properties, bookings, allBookings, blockedDat
     </div>
   )
 }
+
+const campoStyle: React.CSSProperties = {
+  padding: '11px 14px', fontSize: '14px', width: '100%', outline: 'none', boxSizing: 'border-box', color: 'var(--text)',
+}
+
+function Campo({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', color: 'var(--muted)', fontSize: '13px', fontWeight: 500 }}>
+      {label}
+      {children}
+    </label>
+  )
+}
+
+const CSS_CALENDARIO = `
+.cal2-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.cal2-barra {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; padding: 16px 20px;
+}
+.cal2-segmento {
+  display: inline-flex; padding: 3px; gap: 2px; border-radius: 10px;
+  border: 1px solid var(--field-border); background-color: var(--field-bg);
+}
+.cal2-segmento button {
+  height: 30px; padding: 0 14px; border-radius: 8px; border: none; cursor: pointer;
+  background: transparent; color: var(--muted); font-size: 13px; font-weight: 500;
+}
+.cal2-segmento button.ativo { background-color: var(--purple); color: #fff; font-weight: 600; }
+.cal2-abas { display: flex; gap: 6px; flex-wrap: wrap; }
+.cal2-abas button {
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px;
+  border-radius: 999px; border: 1px solid var(--field-border); background: transparent;
+  color: var(--muted); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+}
+.cal2-abas button:hover { color: var(--text); border-color: var(--field-border-hover); }
+.cal2-abas button.ativa { font-weight: 600; }
+.cal2-ponto { width: 8px; height: 8px; border-radius: 999px; display: inline-block; flex-shrink: 0; }
+.cal2-periodo {
+  margin: 0 20px 16px; padding: 14px 16px; border-radius: 12px;
+  border: 1px dashed rgba(124,58,237,0.5); background-color: rgba(124,58,237,0.06);
+}
+.cal2-grade-wrap { border-top: 1px solid var(--border); }
+.cal2-semana { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-bottom: 1px solid var(--border); }
+.cal2-semana div {
+  padding: 10px 0; text-align: center; color: var(--muted);
+  font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.cal2-grade { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.cal2-cell {
+  display: flex; flex-direction: column; min-width: 0; min-height: 108px;
+  padding: 8px; text-align: left; font: inherit; color: inherit;
+  background: transparent; border: none; border-radius: 0;
+  border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background-color 0.12s;
+}
+.cal2-grade > .cal2-cell:nth-child(7n) { border-right: none; }
+.cal2-cell:hover { background-color: rgba(124,58,237,0.07); }
+.cal2-cell.passado > * { opacity: 0.45; }
+.cal2-cell.hoje { background-color: rgba(124,58,237,0.06); }
+.cal2-fora { cursor: default; background-color: rgba(127,127,127,0.03); }
+.cal2-fora:hover { background-color: rgba(127,127,127,0.03); }
+.cal2-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; min-height: 24px; }
+.cal2-num { font-size: 14px; font-weight: 600; color: var(--text); line-height: 24px; padding-left: 2px; }
+.cal2-num.hoje {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; border-radius: 999px;
+  background-color: var(--purple); color: #fff; font-weight: 700;
+}
+.cal2-outras { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
+.cal2-sigla {
+  font-size: 10px; font-weight: 700; line-height: 16px; min-width: 18px; text-align: center;
+  padding: 0 4px; border-radius: 5px; border: 1px solid;
+}
+.cal2-meio { flex: 1; display: flex; align-items: center; min-height: 28px; }
+.cal2-faixa {
+  position: relative; z-index: 1; display: flex; align-items: center; gap: 5px;
+  width: calc(100% + 18px); height: 24px; margin: 0 -9px; padding: 0 9px;
+  border: 1px solid; border-left-width: 0; border-right-width: 0;
+  font-size: 12px; font-weight: 600; overflow: hidden;
+}
+.cal2-faixa.ini { margin-left: 0; width: calc(100% + 9px); border-left-width: 1px; border-top-left-radius: 7px; border-bottom-left-radius: 7px; padding-left: 7px; }
+.cal2-faixa.fim { margin-right: 0; width: calc(100% + 9px); border-right-width: 1px; border-top-right-radius: 7px; border-bottom-right-radius: 7px; }
+.cal2-faixa.ini.fim { width: 100%; }
+.cal2-faixa-texto { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.cal2-preco { font-size: 12px; color: var(--muted); text-align: right; min-height: 16px; font-variant-numeric: tabular-nums; }
+.cal2-lado-a-lado { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.cal2-coluna + .cal2-coluna { border-left: 1px solid var(--border); }
+.cal2-coluna-titulo {
+  display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+  font-size: 14px; font-weight: 700; border-bottom: 1px solid var(--border);
+}
+.cal2-cell.compacto { min-height: 84px; padding: 6px; }
+.cal2-cell.compacto .cal2-faixa { margin: 0 -7px; padding: 0 7px; width: calc(100% + 14px); font-size: 11px; height: 22px; }
+.cal2-cell.compacto .cal2-faixa.ini { margin-left: 0; width: calc(100% + 7px); padding-left: 6px; }
+.cal2-cell.compacto .cal2-faixa.fim { margin-right: 0; width: calc(100% + 7px); }
+.cal2-cell.compacto .cal2-faixa.ini.fim { width: 100%; }
+.cal2-cell.compacto .cal2-preco { font-size: 11px; }
+.cal2-legenda {
+  display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 14px 20px;
+  border-top: 1px solid var(--border); font-size: 12px; color: var(--text);
+}
+.cal2-legenda span { display: inline-flex; align-items: center; gap: 7px; }
+.cal2-legenda i { display: inline-block; width: 22px; height: 12px; border-radius: 4px; border: 1px solid; }
+.cal2-lista { border-top: 1px solid var(--border); }
+.cal2-lista-item {
+  display: flex; align-items: center; gap: 14px; width: 100%; padding: 12px 16px;
+  background: transparent; border: none; border-bottom: 1px solid var(--border);
+  cursor: pointer; font: inherit; color: inherit;
+}
+.cal2-lista-data {
+  width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  background-color: var(--field-bg); border: 1px solid var(--field-border); color: var(--text);
+}
+.cal2-painel {
+  margin-top: 20px; padding: 20px; border-radius: 16px;
+  background-color: var(--surface); border: 1px solid var(--border);
+}
+.cal2-cartao {
+  padding: 16px; border-radius: 12px; border: 1px solid var(--border); border-left: 4px solid;
+  background-color: var(--field-bg);
+}
+.cal2-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.cal2-so-celular { display: none !important; }
+@media (max-width: 767px) {
+  .cal2-so-celular { display: inline-flex !important; }
+  .cal2-grade-wrap.esconder-no-celular { display: none; }
+  .cal2-barra { padding: 14px; }
+  .cal2-barra > div { width: 100%; }
+  .cal2-acoes > button { flex: 1; }
+  .cal2-segmento button { flex: 1; }
+  .cal2-prefixo { display: none; }
+  .cal2-abas button { flex: 1; justify-content: center; }
+  .cal2-cell { min-height: 68px; padding: 4px; }
+  .cal2-num { font-size: 12px; line-height: 20px; }
+  .cal2-num.hoje { width: 22px; height: 22px; }
+  .cal2-faixa, .cal2-cell.compacto .cal2-faixa { height: 18px; margin: 0 -5px; padding: 0 4px; width: calc(100% + 10px); font-size: 10px; }
+  .cal2-faixa.ini, .cal2-cell.compacto .cal2-faixa.ini { margin-left: 0; width: calc(100% + 5px); padding-left: 4px; }
+  .cal2-faixa.fim, .cal2-cell.compacto .cal2-faixa.fim { margin-right: 0; width: calc(100% + 5px); }
+  .cal2-faixa.ini.fim, .cal2-cell.compacto .cal2-faixa.ini.fim { width: 100%; }
+  .cal2-faixa svg { display: none; }
+  .cal2-preco { font-size: 10px; }
+  .cal2-sigla { font-size: 9px; line-height: 13px; min-width: 14px; padding: 0 2px; }
+  .cal2-legenda { padding: 12px 14px; }
+  .cal2-lado-a-lado { grid-template-columns: 1fr; }
+  .cal2-coluna + .cal2-coluna { border-left: none; border-top: 1px solid var(--border); }
+}
+`

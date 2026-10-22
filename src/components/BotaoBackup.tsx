@@ -57,8 +57,8 @@ export function BotaoBackup() {
         disabled={baixando}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: '9px',
-          padding: '11px 20px', borderRadius: '9px',
-          border: '1px solid var(--border)', backgroundColor: 'var(--bg)',
+          padding: '11px 20px', borderRadius: '10px',
+          border: '1px solid var(--field-border)', backgroundColor: 'var(--field-bg)',
           color: 'var(--text)', fontWeight: 600, fontSize: '14px',
           cursor: baixando ? 'not-allowed' : 'pointer', opacity: baixando ? 0.65 : 1,
         }}

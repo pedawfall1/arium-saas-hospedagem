@@ -136,8 +136,8 @@ export function ExportarContador({
         aria-expanded={aberto}
         style={{
           display: 'flex', alignItems: 'center', gap: '8px',
-          padding: '10px 16px', borderRadius: '8px',
-          border: '1px solid var(--border)', backgroundColor: 'var(--surface)',
+          padding: '11px 16px', borderRadius: '10px',
+          border: '1px solid var(--field-border)', backgroundColor: 'var(--field-bg)',
           color: 'var(--text)', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
           width: '100%', justifyContent: 'center',
         }}

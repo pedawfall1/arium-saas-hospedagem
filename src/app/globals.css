@@ -955,3 +955,71 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .react-datepicker-popper {
   z-index: 50 !important;
 }
+
+/* ===== CAMPOS DO PAINEL =====
+   Os campos usavam inline o mesmo fundo da página (--bg), mais escuro que o
+   card (--surface) em volta: pareciam buracos. Esta regra dá a todos um único
+   visual — levemente mais claro que o card, borda suave e anel roxo no foco —
+   sem precisar tocar nos estilos inline de cada tela (por isso o !important). */
+:root {
+  --field-bg: rgba(255, 255, 255, 0.045);
+  --field-border: rgba(255, 255, 255, 0.12);
+  --field-border-hover: rgba(255, 255, 255, 0.24);
+  --field-ring: rgba(124, 58, 237, 0.28);
+  /* Texto de cada cabana no calendário (1ª laranja, 2ª roxa, 3ª verde-água) */
+  --cabin-1: #fdba74;
+  --cabin-2: #c4b5fd;
+  --cabin-3: #5eead4;
+}
+[data-theme="light"] {
+  --field-bg: #ffffff;
+  --field-border: rgba(15, 15, 26, 0.16);
+  --field-border-hover: rgba(15, 15, 26, 0.32);
+  --field-ring: rgba(124, 58, 237, 0.18);
+  --cabin-1: #9a3412;
+  --cabin-2: #5b21b6;
+  --cabin-3: #115e59;
+}
+
+.dashboard-main :is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]),
+  select,
+  textarea
+) {
+  background-color: var(--field-bg) !important;
+  border: 1px solid var(--field-border) !important;
+  border-radius: 10px !important;
+  color: var(--text) !important;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.dashboard-main :is(input, select, textarea):hover:not(:focus):not(:disabled) {
+  border-color: var(--field-border-hover) !important;
+}
+.dashboard-main :is(input, select, textarea):focus {
+  border-color: var(--purple) !important;
+  box-shadow: 0 0 0 3px var(--field-ring) !important;
+  outline: none !important;
+}
+.dashboard-main :is(input, textarea)::placeholder {
+  color: var(--muted);
+  opacity: 0.65;
+}
+.dashboard-main :is(input, select, textarea):disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+/* Seta própria no select: a nativa destoava em cada navegador. */
+.dashboard-main select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 14px;
+  padding-right: 40px !important;
+  cursor: pointer;
+}
+.dashboard-main select option {
+  background-color: var(--surface);
+  color: var(--text);
+}
