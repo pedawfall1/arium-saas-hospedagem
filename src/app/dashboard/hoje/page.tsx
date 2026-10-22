@@ -43,10 +43,21 @@ export default async function HojePage() {
     bookings = data || []
   }
 
+  // Pagamentos lançados: "receber na chegada" desconta o que já entrou.
+  let payments: any[] = []
+  if (bookings.length > 0) {
+    const { data } = await supabase
+      .from('booking_payments')
+      .select('booking_id, amount')
+      .in('booking_id', bookings.map(b => b.id))
+    payments = data || []
+  }
+
   return (
     <HojeClient
       properties={properties || []}
       bookings={bookings}
+      payments={payments}
       hoje={dia(0)}
       amanha={dia(1)}
     />
