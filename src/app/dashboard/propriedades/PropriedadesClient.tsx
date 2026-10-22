@@ -102,7 +102,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
   const [holidays, setHolidays] = useState(initialHolidays)
   // Fala em NOITES (primeira/última), não em date_from/date_to. A conversão
   // para os campos do banco acontece no salvar, via paraArmazenamento().
-  const [newHoliday, setNewHoliday] = useState({ property_id: '', name: '', primeira: '', ultima: '', price: '', min_nights: '1' })
+  const [newHoliday, setNewHoliday] = useState({ property_id: '', name: '', primeira: '', ultima: '', price: '', price_full: '', min_nights: '1' })
   const [singleDate, setSingleDate] = useState("")
   const [singleDateOut, setSingleDateOut] = useState("")
   const [savingHoliday, setSavingHoliday] = useState(false)
@@ -279,6 +279,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
       name: newHoliday.name,
       ...paraArmazenamento('feriado', newHoliday.primeira, newHoliday.ultima),
       price: newHoliday.price ? Number(newHoliday.price) : null,
+      price_full_occupancy: isNaN(parseMoney(newHoliday.price_full)) ? null : parseMoney(newHoliday.price_full),
       min_nights: Number(newHoliday.min_nights) || 1,
     }
     const { data, error } = await supabase.from('holidays').insert([holidayObj]).select()
@@ -286,7 +287,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
     if (error) { setPricesMsg({ text: error.message, type: 'err' }); return }
     if (data && data.length > 0) {
       setHolidays([...holidays, data[0]])
-      setNewHoliday({ property_id: '', name: '', primeira: '', ultima: '', price: '', min_nights: '1' })
+      setNewHoliday({ property_id: '', name: '', primeira: '', ultima: '', price: '', price_full: '', min_nights: '1' })
     }
   }
 
@@ -342,6 +343,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
       name: editHolidayData.name,
       ...paraArmazenamento('feriado', editHolidayData.primeira, editHolidayData.ultima),
       price: isNaN(parseMoney(editHolidayData.price)) ? null : parseMoney(editHolidayData.price),
+      price_full_occupancy: isNaN(parseMoney(editHolidayData.price_full_occupancy)) ? null : parseMoney(editHolidayData.price_full_occupancy),
       min_nights: Number(editHolidayData.min_nights) || 1,
     }).eq('id', editHolidayData.id).select()
     setSavingHoliday(false)
@@ -362,6 +364,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
       date_from: h.date_from,
       date_to: h.date_to,
       price: h.price,
+      price_full_occupancy: h.price_full_occupancy,
       min_nights: h.min_nights
     }))
     const { data } = await supabase.from('holidays').insert(newHolidays).select()
@@ -638,6 +641,11 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                                     {formatCurrency(h.price)}
                                   </span>
                                 )}
+                                {h.price_full_occupancy != null && (
+                                  <span style={{ color: 'var(--violet-soft)', fontSize: '13px' }}>
+                                    Casa cheia ({activeProp.max_guests} pessoas): {formatCurrency(h.price_full_occupancy)}
+                                  </span>
+                                )}
                                 <p style={{ color: 'var(--muted)', fontSize: '12px', opacity: 0.7 }}>
                                   {descreveNoites(noitesCobertas('feriado', h))}
                                 </p>
@@ -686,6 +694,13 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Preço/noite (R$)</label>
                       <input type="number" value={newHoliday.price} onChange={e => setNewHoliday({...newHoliday, price: e.target.value})} placeholder="Opcional" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
                     </div>
+                    {activeProp.max_guests > (activeProp.included_guests ?? 2) && (
+                      <div style={{ minWidth: 0 }}>
+                        <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Casa cheia ({activeProp.max_guests} pessoas)</label>
+                        <MoneyInput value={newHoliday.price_full} onChange={v => setNewHoliday({...newHoliday, price_full: v})} placeholder="Opcional" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
+                        <p style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px', lineHeight: 1.4 }}>Preço fechado por noite, já sem taxa de hóspede.</p>
+                      </div>
+                    )}
                     <div style={{ minWidth: 0 }}>
                       <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Mínimo de noites</label>
                       <input type="number" required min="1" value={newHoliday.min_nights} onChange={e => setNewHoliday({...newHoliday, min_nights: e.target.value})} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />

@@ -64,6 +64,11 @@ export function EditarDataEspecial({
         <Campo label="Preço/noite">
           {id => <MoneyInput id={id} value={dados.price ?? ''} onChange={v => set('price', v)} placeholder={tipo === 'feriado' ? 'Opcional' : 'R$ 0,00'} style={inputStyle} />}
         </Campo>
+        {tipo === 'feriado' && property.max_guests > (property.included_guests ?? 2) && (
+          <Campo label={`Casa cheia (${property.max_guests} pessoas)`} hint="Preço fechado por noite, já sem taxa de hóspede. Vazio = regra normal.">
+            {id => <MoneyInput id={id} value={dados.price_full_occupancy ?? ''} onChange={v => set('price_full_occupancy', v)} placeholder="Opcional" style={inputStyle} />}
+          </Campo>
+        )}
         {tipo === 'feriado' && (
           <Campo label="Mínimo de noites" hint="Vale para quem faz check-in nestas datas.">
             {id => (
