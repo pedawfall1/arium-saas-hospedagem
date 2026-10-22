@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/Button"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
-import { Trash2, Edit2, Copy, Check, X } from "lucide-react"
+import { Trash2, Edit2, Copy } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { addMonths, eachDayOfInterval, endOfMonth, format, isSameMonth, isToday, startOfMonth, startOfWeek, endOfWeek } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -18,6 +18,7 @@ import { CalendarioPrecos } from "@/components/propriedades/CalendarioPrecos"
 import { ExtrasEPacotes } from "@/components/propriedades/ExtrasEPacotes"
 import { Promocoes } from "@/components/propriedades/Promocoes"
 import { PreviaNoites } from "@/components/propriedades/PreviaNoites"
+import { EditarDataEspecial } from "@/components/propriedades/EditarDataEspecial"
 import { noitesDoRegistro, paraArmazenamento, noitesCobertas, descreveNoites, detectarProblemas } from "@/lib/datasEspeciais"
 
 const precoInputStyle = {
@@ -227,10 +228,13 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
     if (editRuleData.ultima < editRuleData.primeira) {
       setPricesMsg({ text: 'A última noite não pode ser antes da primeira.', type: 'err' }); return
     }
+    if (isNaN(parseMoney(editRuleData.price))) {
+      setPricesMsg({ text: 'Informe o preço por noite da regra.', type: 'err' }); return
+    }
     setSavingRule(true)
     const { data, error } = await supabase.from('pricing_rules').update({
       label: editRuleData.label,
-      price: Number(editRuleData.price),
+      price: parseMoney(editRuleData.price),
       ...paraArmazenamento('regra', editRuleData.primeira, editRuleData.ultima),
     }).eq('id', editRuleData.id).select()
     setSavingRule(false)
@@ -337,7 +341,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
     const { data, error } = await supabase.from('holidays').update({
       name: editHolidayData.name,
       ...paraArmazenamento('feriado', editHolidayData.primeira, editHolidayData.ultima),
-      price: editHolidayData.price ? Number(editHolidayData.price) : null,
+      price: isNaN(parseMoney(editHolidayData.price)) ? null : parseMoney(editHolidayData.price),
       min_nights: Number(editHolidayData.min_nights) || 1,
     }).eq('id', editHolidayData.id).select()
     setSavingHoliday(false)
@@ -568,18 +572,11 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                     {activeRules.map((r: any) => (
                       <div key={r.id} style={{ display: 'flex', flexDirection: 'column', padding: '12px 16px', border: '1px solid var(--border)', borderRadius: '8px', backgroundColor: 'var(--bg)' }}>
                         {editingRule === r.id ? (
-                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-                            <input value={editRuleData.label} onChange={e => setEditRuleData({...editRuleData, label: e.target.value})} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px', width: '140px' }} placeholder="Nome da Regra" />
-                            <label style={{ display: 'flex', flexDirection: 'column', gap: '2px', color: 'var(--muted)', fontSize: '11px' }}>Primeira noite
-                              <input type="date" value={editRuleData.primeira} onChange={e => setEditRuleData({...editRuleData, primeira: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px' }} /></label>
-                            <label style={{ display: 'flex', flexDirection: 'column', gap: '2px', color: 'var(--muted)', fontSize: '11px' }}>Última noite
-                              <input type="date" value={editRuleData.ultima} onChange={e => setEditRuleData({...editRuleData, ultima: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px' }} /></label>
-                            <input type="number" value={editRuleData.price || ''} onChange={e => setEditRuleData({...editRuleData, price: e.target.value})} placeholder="Preço" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px', width: '100px' }} />
-                            <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
-                              <button onClick={handleSaveRuleEdit} style={{ backgroundColor: 'var(--purple)', color: 'white', border: 'none', borderRadius: '6px', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Check size={16} /></button>
-                              <button onClick={() => setEditingRule(null)} style={{ backgroundColor: 'transparent', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><X size={16} /></button>
-                            </div>
-                          </div>
+                          <EditarDataEspecial
+                            tipo="regra" dados={editRuleData} onChange={setEditRuleData}
+                            onSalvar={handleSaveRuleEdit} onCancelar={() => setEditingRule(null)} salvando={savingRule}
+                            property={activeProp} dailyRates={initialDailyRates} rules={rules} holidays={holidays}
+                          />
                         ) : (
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div>
@@ -616,19 +613,11 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                       {activeHolidays.map((h: any) => (
                         <div key={h.id} style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: '8px', backgroundColor: 'var(--bg)' }}>
                           {editingHoliday === h.id ? (
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', padding: '12px 16px' }}>
-                              <input value={editHolidayData.name} onChange={e => setEditHolidayData({...editHolidayData, name: e.target.value})} style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px', width: '140px' }} placeholder="Nome" />
-                              <label style={{ display: 'flex', flexDirection: 'column', gap: '2px', color: 'var(--muted)', fontSize: '11px' }}>Primeira noite
-                                <input type="date" value={editHolidayData.primeira} onChange={e => setEditHolidayData({...editHolidayData, primeira: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px' }} /></label>
-                              <label style={{ display: 'flex', flexDirection: 'column', gap: '2px', color: 'var(--muted)', fontSize: '11px' }}>Última noite
-                                <input type="date" value={editHolidayData.ultima} onChange={e => setEditHolidayData({...editHolidayData, ultima: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px' }} /></label>
-                              <input type="number" value={editHolidayData.price || ''} onChange={e => setEditHolidayData({...editHolidayData, price: e.target.value})} placeholder="Preço" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px', width: '100px' }} />
-                              <input type="number" value={editHolidayData.min_nights || ''} onChange={e => setEditHolidayData({...editHolidayData, min_nights: e.target.value})} placeholder="Mín. noites" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', color: 'var(--text)', fontSize: '14px', width: '80px' }} />
-                              <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
-                                <button onClick={handleSaveHolidayEdit} style={{ backgroundColor: 'var(--purple)', color: 'white', border: 'none', borderRadius: '6px', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Check size={16} /></button>
-                                <button onClick={() => setEditingHoliday(null)} style={{ backgroundColor: 'transparent', color: 'var(--muted)', border: '1px solid var(--border)', borderRadius: '6px', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><X size={16} /></button>
-                              </div>
-                            </div>
+                            <EditarDataEspecial
+                              tipo="feriado" dados={editHolidayData} onChange={setEditHolidayData}
+                              onSalvar={handleSaveHolidayEdit} onCancelar={() => setEditingHoliday(null)} salvando={savingHoliday}
+                              property={activeProp} dailyRates={initialDailyRates} rules={rules} holidays={holidays}
+                            />
                           ) : (
                             <div style={{
                               position: 'relative',

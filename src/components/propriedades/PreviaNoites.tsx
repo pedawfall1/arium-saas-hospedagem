@@ -1,6 +1,7 @@
 "use client"
 
 import { addDays, format, parseISO } from "date-fns"
+import { ptBR } from "date-fns/locale"
 import { noitesEntre } from "@/lib/datasEspeciais"
 import { precoDoDia } from "@/lib/precoDoDia"
 import { parseMoney } from "@/lib/money"
@@ -49,7 +50,7 @@ export function PreviaNoites({
 
   const rotulo = (data: string) => {
     const d = parseISO(data)
-    return format(d, 'EEEEEE dd/MM').replace('.', '')
+    return format(d, 'EEE dd/MM', { locale: ptBR }).replace('.', '')
   }
 
   const linhas = [
