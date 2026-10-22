@@ -19,13 +19,16 @@ const inputStyle = {
  */
 export function EditarDataEspecial({
   tipo, dados, onChange, onSalvar, onCancelar, salvando,
-  property, dailyRates, rules, holidays,
+  property, dailyRates, rules, holidays, titulo, rotuloSalvar = 'Salvar alterações',
 }: {
   tipo: 'feriado' | 'regra'
   dados: any
   onChange: (dados: any) => void
   onSalvar: () => void
-  onCancelar: () => void
+  /** Sem onCancelar o botão "Cancelar" não aparece (ex.: formulário de adicionar). */
+  onCancelar?: () => void
+  titulo?: string
+  rotuloSalvar?: string
   salvando: boolean
   property: any
   dailyRates: any[]
@@ -46,7 +49,7 @@ export function EditarDataEspecial({
       style={{ padding: '20px', borderLeft: '3px solid var(--purple)', borderRadius: '8px' }}
     >
       <p style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600, marginBottom: '16px' }}>
-        {tipo === 'feriado' ? 'Editar feriado' : 'Editar regra'}
+        {titulo ?? (tipo === 'feriado' ? 'Editar feriado' : 'Editar regra')}
       </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px' }}>
@@ -88,11 +91,11 @@ export function EditarDataEspecial({
       )}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '20px', flexWrap: 'wrap' }}>
-        <button type="button" onClick={onCancelar} disabled={salvando} style={{ backgroundColor: 'transparent', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '8px', padding: '11px 20px', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>
+        {onCancelar && <button type="button" onClick={onCancelar} disabled={salvando} style={{ backgroundColor: 'transparent', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '8px', padding: '11px 20px', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}>
           Cancelar
-        </button>
+        </button>}
         <button type="submit" disabled={salvando} style={{ backgroundColor: 'var(--purple)', color: '#fff', border: 'none', borderRadius: '8px', padding: '11px 24px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', opacity: salvando ? 0.6 : 1 }}>
-          {salvando ? 'Salvando...' : 'Salvar alterações'}
+          {salvando ? 'Salvando...' : rotuloSalvar}
         </button>
       </div>
     </form>

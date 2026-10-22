@@ -140,10 +140,6 @@ export function CalendarioPrecos({ property, dailyRates, rules, holidays }: any)
       borderRadius: '16px', padding: '28px', marginTop: '24px',
     }}>
       <div style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <span style={{
-          backgroundColor: 'var(--purple-dim)', color: 'var(--accent)', borderRadius: '6px',
-          padding: '3px 12px', fontSize: '13px', fontWeight: 600,
-        }}>05</span>
         <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600 }}>Preço por dia</h2>
       </div>
       <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '20px', lineHeight: 1.55 }}>

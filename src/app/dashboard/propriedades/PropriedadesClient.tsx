@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/Button"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
-import { Trash2, Edit2, Copy } from "lucide-react"
+import { Trash2, Edit2, Copy, Tag, CalendarDays, PartyPopper, Percent, Lock, Gift } from "lucide-react"
 import { formatCurrency, formatDate } from "@/lib/utils"
 import { addMonths, eachDayOfInterval, endOfMonth, format, isSameMonth, isToday, startOfMonth, startOfWeek, endOfWeek } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -17,8 +17,9 @@ import { PrecosAvancados } from "@/components/propriedades/PrecosAvancados"
 import { CalendarioPrecos } from "@/components/propriedades/CalendarioPrecos"
 import { ExtrasEPacotes } from "@/components/propriedades/ExtrasEPacotes"
 import { Promocoes } from "@/components/propriedades/Promocoes"
-import { PreviaNoites } from "@/components/propriedades/PreviaNoites"
 import { EditarDataEspecial } from "@/components/propriedades/EditarDataEspecial"
+import { Campo } from "@/components/ui/Campo"
+import { AriumDatePicker } from "@/components/ui/DatePicker"
 import { noitesDoRegistro, paraArmazenamento, noitesCobertas, descreveNoites, detectarProblemas } from "@/lib/datasEspeciais"
 
 const precoInputStyle = {
@@ -102,7 +103,10 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
   const [holidays, setHolidays] = useState(initialHolidays)
   // Fala em NOITES (primeira/última), não em date_from/date_to. A conversão
   // para os campos do banco acontece no salvar, via paraArmazenamento().
-  const [newHoliday, setNewHoliday] = useState({ property_id: '', name: '', primeira: '', ultima: '', price: '', price_full: '', min_nights: '1' })
+  const [newHoliday, setNewHoliday] = useState<any>({ property_id: '', name: '', primeira: '', ultima: '', price: '', price_full_occupancy: '', min_nights: '1' })
+  const [singlePrice, setSinglePrice] = useState('')
+  const [secao, setSecao] = useState<Secao>('precos')
+  const [mostrarPassados, setMostrarPassados] = useState(false)
   const [singleDate, setSingleDate] = useState("")
   const [singleDateOut, setSingleDateOut] = useState("")
   const [savingHoliday, setSavingHoliday] = useState(false)
@@ -264,8 +268,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
     setSavingRule(false)
   }
 
-  const handleAddHoliday = async (e: React.FormEvent, propertyId: string) => {
-    e.preventDefault()
+  const handleAddHoliday = async (propertyId: string) => {
     setPricesMsg(null)
     if (!newHoliday.primeira || !newHoliday.ultima) {
       setPricesMsg({ text: 'Escolha a primeira e a última noite.', type: 'err' }); return
@@ -278,8 +281,8 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
       property_id: propertyId,
       name: newHoliday.name,
       ...paraArmazenamento('feriado', newHoliday.primeira, newHoliday.ultima),
-      price: newHoliday.price ? Number(newHoliday.price) : null,
-      price_full_occupancy: isNaN(parseMoney(newHoliday.price_full)) ? null : parseMoney(newHoliday.price_full),
+      price: isNaN(parseMoney(newHoliday.price)) ? null : parseMoney(newHoliday.price),
+      price_full_occupancy: isNaN(parseMoney(newHoliday.price_full_occupancy)) ? null : parseMoney(newHoliday.price_full_occupancy),
       min_nights: Number(newHoliday.min_nights) || 1,
     }
     const { data, error } = await supabase.from('holidays').insert([holidayObj]).select()
@@ -287,11 +290,11 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
     if (error) { setPricesMsg({ text: error.message, type: 'err' }); return }
     if (data && data.length > 0) {
       setHolidays([...holidays, data[0]])
-      setNewHoliday({ property_id: '', name: '', primeira: '', ultima: '', price: '', price_full: '', min_nights: '1' })
+      setNewHoliday({ property_id: '', name: '', primeira: '', ultima: '', price: '', price_full_occupancy: '', min_nights: '1' })
     }
   }
 
-  const handleQuickAddHoliday = async (e: React.FormEvent, form: HTMLFormElement, propertyId: string) => {
+  const handleQuickAddHoliday = async (e: React.FormEvent, propertyId: string) => {
     e.preventDefault()
     if (!singleDate || !singleDateOut) return
     if (singleDateOut <= singleDate) {
@@ -299,21 +302,20 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
       return
     }
     setSavingHoliday(true)
-    const priceInput = form.elements.namedItem('singlePrice') as HTMLInputElement;
-    const price = priceInput.value;
+    const price = parseMoney(singlePrice)
 
     const holidayObj = {
       property_id: propertyId,
       name: 'Diária Única (Exceção)',
       date_from: singleDate,
       date_to: singleDateOut,
-      price: price ? Number(price) : null,
+      price: isNaN(price) ? null : price,
       min_nights: 1,
     }
     const { data } = await supabase.from('holidays').insert([holidayObj]).select()
     if (data && data.length > 0) {
       setHolidays([...holidays, data[0]])
-      form.reset()
+      setSinglePrice('')
       setSingleDate("")
       setSingleDateOut("")
     }
@@ -390,190 +392,167 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
     setTogglingBlock(false)
   }
 
+  const hoje = format(new Date(), 'yyyy-MM-dd')
+  // Feriado passado = a última noite já foi (date_to é exclusivo).
+  const feriadosFuturos = activeHolidays.filter((h: any) => h.date_to > hoje)
+  const feriadosPassados = activeHolidays.filter((h: any) => h.date_to <= hoje)
+  const cabeCasaCheia = activeProp && Number(activeProp.max_guests) > Number(activeProp.included_guests ?? 2)
+
+  const linhaFeriado = (h: any) => (
+    <div key={h.id} className="prop-item">
+      {editingHoliday === h.id ? (
+        <EditarDataEspecial
+          tipo="feriado" dados={editHolidayData} onChange={setEditHolidayData}
+          onSalvar={handleSaveHolidayEdit} onCancelar={() => setEditingHoliday(null)} salvando={savingHoliday}
+          property={activeProp} dailyRates={initialDailyRates} rules={rules} holidays={holidays}
+        />
+      ) : (
+        <div className="prop-linha">
+          <div style={{ minWidth: 0 }}>
+            <p className="prop-linha-titulo">{h.name}<span>{h.date_from?.slice(0, 4)}</span></p>
+            <p className="prop-linha-sub">{descreveNoites(noitesCobertas('feriado', h))} · {h.min_nights > 1 ? `mín. ${h.min_nights} noites` : 'mín. 1 noite'}</p>
+          </div>
+          <div className="prop-linha-preco">
+            {h.price != null ? <strong>{formatCurrency(h.price)}<span>/noite</span></strong> : <span style={{ color: 'var(--muted)', fontSize: '13px' }}>preço normal</span>}
+            {h.price_full_occupancy != null && <small>casa cheia ({activeProp.max_guests}): {formatCurrency(h.price_full_occupancy)}</small>}
+          </div>
+          <div className="prop-acoes">
+            <button onClick={() => handleReplicateHoliday(h)} title="Copiar para as outras cabanas" aria-label="Copiar para as outras cabanas"><Copy size={15} /></button>
+            <button onClick={() => handleEditHoliday(h)} title="Editar" aria-label="Editar"><Edit2 size={15} /></button>
+            <button onClick={() => handleDeleteHoliday(h.id)} title="Excluir" aria-label="Excluir" className="perigo"><Trash2 size={15} /></button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <div style={{ width: '100%' }}>
       <ConfirmModal />
-      <h1 style={{ color: 'var(--text)', fontSize: '28px', fontWeight: 700, marginBottom: '6px' }}>
-        Configurações de Propriedades
-      </h1>
-      <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '32px' }}>
-        Gerencie as tarifas, regras sazonais e bloqueios.
+      <style>{CSS_PROPRIEDADES}</style>
+
+      <h1 style={{ color: 'var(--text)', fontSize: '28px', fontWeight: 700, marginBottom: '4px' }}>Cabanas e preços</h1>
+      <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '24px' }}>
+        Diárias, feriados, promoções e bloqueios de cada cabana.
       </p>
 
       {properties.length === 0 ? (
-        <div style={{ padding: '24px', textAlign: 'center', border: '1px solid var(--border)', borderRadius: '12px', backgroundColor: 'var(--surface)', color: 'var(--muted)' }}>
-          Nenhuma propriedade cadastrada.
-        </div>
+        <div className="prop-card" style={{ textAlign: 'center', color: 'var(--muted)' }}>Nenhuma cabana cadastrada.</div>
       ) : (
-        <div>
-          {/* Tabs header */}
-          <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', marginBottom: '32px', overflowX: 'auto' }}>
-            {properties.map((p: any) => {
-              const isActive = activeTab === p.id 
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => setActiveTab(p.id)}
-                  style={{
-                    backgroundColor: isActive ? 'var(--purple-dim)' : 'transparent',
-                    color: isActive ? 'var(--accent)' : 'var(--muted)',
-                    border: 'none',
-                    borderBottom: isActive ? '3px solid var(--purple)' : '3px solid transparent',
-                    padding: '10px 20px',
-                    fontSize: '14px',
-                    fontWeight: isActive ? 600 : 400,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    borderRadius: isActive ? '8px 8px 0 0' : '0',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
-                  {p.name}
-                </button>
-              )
-            })}
+        <>
+          {/* Cabana */}
+          {/* Consumo e pacotes vale para todas as cabanas: sem seletor ali. */}
+          <div className="prop-cabanas" style={secao === 'extras' ? { visibility: 'hidden', height: 0, margin: 0, overflow: 'hidden' } : undefined}>
+            {properties.map((p: any) => (
+              <button key={p.id} onClick={() => { setActiveTab(p.id); setEditingHoliday(null); setEditingRule(null) }} className={activeTab === p.id ? 'ativa' : ''}>
+                {p.name}
+              </button>
+            ))}
           </div>
 
-          {/* Active Tab Content */}
-          {activeProp && (
-            <div>
-              
-              {/* SECTION 1: Preços */}
-              <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '28px', marginBottom: '20px' }}>
-                <div style={{ marginBottom: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                    <span style={{ backgroundColor: 'var(--purple-dim)', color: 'var(--accent)', borderRadius: '6px', padding: '3px 12px', fontSize: '13px', fontWeight: 600 }}>01</span>
-                    <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600 }}>Preços base</h2>
-                  </div>
-                  <p style={{ color: 'var(--muted)', fontSize: '13px' }}>Tarifas padrão por tipo de dia.</p>
+          {/* Assunto */}
+          <nav className="prop-secoes" aria-label="Seções">
+            {SECOES.map(({ id, rotulo, Icone }) => (
+              <button key={id} onClick={() => setSecao(id)} className={secao === id ? 'ativa' : ''}>
+                <Icone size={15} /> {rotulo}
+              </button>
+            ))}
+          </nav>
+
+          {activeProp && secao === 'precos' && (
+            <>
+              <section className="prop-card">
+                <CabecalhoSecao titulo="Diárias" descricao="O preço padrão de cada tipo de noite. Feriados, regras e promoções passam por cima destes valores." />
+                <div className="prop-grade">
+                  <Campo label="Dia de semana">
+                    {id => <MoneyInput id={id} value={activeProp.base_price_weekday == null ? '' : String(activeProp.base_price_weekday)} onChange={v => handlePriceChange('base_price_weekday', v)} style={precoInputStyle} />}
+                  </Campo>
+                  <Campo label="Fim de semana (sex e sáb)">
+                    {id => <MoneyInput id={id} value={activeProp.base_price_weekend == null ? '' : String(activeProp.base_price_weekend)} onChange={v => handlePriceChange('base_price_weekend', v)} style={precoInputStyle} />}
+                  </Campo>
+                  <Campo label="Noite avulsa em dia de semana" hint="Cobrada quando a estadia é de 1 noite só.">
+                    {id => <MoneyInput id={id} value={activeProp.single_night_weekday_price == null ? '' : String(activeProp.single_night_weekday_price)} onChange={v => handlePriceChange('single_night_weekday_price', v)} style={precoInputStyle} />}
+                  </Campo>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-                  <div style={{ minWidth: 0 }}>
-                    <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Dias Úteis (R$)</label>
-                    <MoneyInput
-                      value={activeProp.base_price_weekday == null ? '' : String(activeProp.base_price_weekday)}
-                      onChange={v => handlePriceChange('base_price_weekday', v)}
-                      style={precoInputStyle}
-                    />
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Fim de Semana (R$)</label>
-                    <MoneyInput
-                      value={activeProp.base_price_weekend == null ? '' : String(activeProp.base_price_weekend)}
-                      onChange={v => handlePriceChange('base_price_weekend', v)}
-                      style={precoInputStyle}
-                    />
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Isolada Dia Útil (R$)</label>
-                    <MoneyInput
-                      value={activeProp.single_night_weekday_price == null ? '' : String(activeProp.single_night_weekday_price)}
-                      onChange={v => handlePriceChange('single_night_weekday_price', v)}
-                      style={precoInputStyle}
-                    />
-                  </div>
+                <h3 className="prop-subtitulo">Mínimo de noites</h3>
+                <p className="prop-ajuda">Vale para quem faz check-in nesse tipo de dia.</p>
+                <div className="prop-grade">
+                  <Campo label="Entrando em dia de semana">
+                    {id => <input id={id} type="number" min="1" value={activeProp.min_nights_weekday || ''} onChange={e => handlePriceChange('min_nights_weekday', Number(e.target.value))} style={precoInputStyle} />}
+                  </Campo>
+                  <Campo label="Entrando no fim de semana">
+                    {id => <input id={id} type="number" min="1" value={activeProp.min_nights_weekend || ''} onChange={e => handlePriceChange('min_nights_weekend', Number(e.target.value))} style={precoInputStyle} />}
+                  </Campo>
+                  <Campo label="Entrando em feriado" hint="Se o feriado tiver mínimo próprio, vale o dele.">
+                    {id => <input id={id} type="number" min="1" value={activeProp.min_nights_holiday || ''} onChange={e => handlePriceChange('min_nights_holiday', Number(e.target.value))} style={precoInputStyle} />}
+                  </Campo>
                 </div>
 
-                {pricesMsg && (
-                  <p style={{
-                    marginTop: '14px', fontSize: '13px', fontWeight: 500,
-                    color: pricesMsg.type === 'ok' ? 'var(--success)' : 'var(--danger)',
-                  }}>
-                    {pricesMsg.text}
-                  </p>
-                )}
-
-                <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
-                  <h3 style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600, marginBottom: '16px' }}>Mínimo de Noites</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-                    <div style={{ minWidth: 0 }}>
-                      <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Semana (dom-qui)</label>
-                      <input
-                        type="number"
-                        value={activeProp.min_nights_weekday || ''}
-                        onChange={e => handlePriceChange('min_nights_weekday', Number(e.target.value))}
-                        style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none' }}
-                      />
-                      <p style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px' }}>Aplica-se a reservas iniciando neste período.</p>
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Final de semana</label>
-                      <input
-                        type="number"
-                        value={activeProp.min_nights_weekend || ''}
-                        onChange={e => handlePriceChange('min_nights_weekend', Number(e.target.value))}
-                        style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none' }}
-                      />
-                      <p style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px' }}>Aplica-se a reservas iniciando neste período.</p>
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Feriados</label>
-                      <input
-                        type="number"
-                        value={activeProp.min_nights_holiday || ''}
-                        onChange={e => handlePriceChange('min_nights_holiday', Number(e.target.value))}
-                        style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none' }}
-                      />
-                      <p style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px' }}>Aplica-se a reservas iniciando neste período.</p>
-                    </div>
-                  </div>
+                <div className="prop-rodape">
+                  {pricesMsg && <p style={{ fontSize: '13px', fontWeight: 500, color: pricesMsg.type === 'ok' ? 'var(--success)' : 'var(--danger)' }}>{pricesMsg.text}</p>}
+                  <button onClick={savePrices} disabled={savingPrices} className="prop-btn-primario">{savingPrices ? 'Salvando...' : 'Salvar diárias'}</button>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button onClick={savePrices} disabled={savingPrices} style={{ backgroundColor: 'var(--purple)', color: 'white', border: 'none', borderRadius: '8px', padding: '11px 24px', fontSize: '14px', cursor: 'pointer', marginTop: '16px', fontWeight: 600 }}>
-                    {savingPrices ? "Salvando..." : "Salvar Preços"}
-                  </button>
-                </div>
-              </div>
+              </section>
 
               <PrecosAvancados property={activeProp} />
+            </>
+          )}
 
-              <CalendarioPrecos
-                property={activeProp}
-                dailyRates={initialDailyRates}
-                rules={rules}
-                holidays={holidays}
-              />
+          {activeProp && secao === 'calendario' && (
+            <CalendarioPrecos property={activeProp} dailyRates={initialDailyRates} rules={rules} holidays={holidays} />
+          )}
 
-              <Promocoes property={activeProp} promotions={initialPromotions} />
-
-              {/* SECTION 2: Regras Especiais e Feriados */}
-              <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '28px', marginBottom: '20px' }}>
-                <div style={{ marginBottom: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                    <span style={{ backgroundColor: 'var(--purple-dim)', color: 'var(--accent)', borderRadius: '6px', padding: '3px 12px', fontSize: '13px', fontWeight: 600 }}>02</span>
-                    <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600 }}>Regras Especiais e Feriados</h2>
-                  </div>
-                  <p style={{ color: 'var(--muted)', fontSize: '13px' }}>Sobrescreve os preços base e mínimo de noites em períodos específicos.</p>
+          {activeProp && secao === 'feriados' && (
+            <>
+              {problemasDatas.length > 0 && (
+                <div className="prop-alerta">
+                  <p style={{ color: 'var(--warning)', fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>Atenção nestas datas</p>
+                  <ul>
+                    {problemasDatas.map((p: any, i: number) => (
+                      <li key={i}>
+                        {p.kind === 'buraco'
+                          ? <>Em <strong>{p.nomeGrupo}</strong>, {p.faltando.length === 1 ? 'a noite' : 'as noites'} de{' '}
+                              <strong>{descreveNoites(p.faltando).split(': ')[1]}</strong>{' '}
+                              {p.faltando.length === 1 ? 'ficou de fora' : 'ficaram de fora'} e serão vendidas pelo preço normal.
+                              Edite e estenda a <strong>última noite</strong> para cobrir.</>
+                          : <>Registro <strong>duplicado</strong> ({p.resumo}). Apague um deles.</>}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
+              )}
 
-                {problemasDatas.length > 0 && (
-                  <div style={{
-                    backgroundColor: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.4)',
-                    borderRadius: '10px', padding: '14px 18px', marginBottom: '20px',
-                  }}>
-                    <p style={{ color: 'var(--warning)', fontSize: '13px', fontWeight: 700, marginBottom: '8px' }}>
-                      ⚠️ Atenção nestas datas
-                    </p>
-                    <ul style={{ margin: 0, paddingLeft: '18px', color: 'var(--text)', fontSize: '13px', lineHeight: 1.6 }}>
-                      {problemasDatas.map((p: any, i: number) => (
-                        <li key={i}>
-                          {p.kind === 'buraco'
-                            ? <>Em <strong>{p.nomeGrupo}</strong>, {p.faltando.length === 1 ? 'a noite' : 'as noites'} de{' '}
-                                <strong>{descreveNoites(p.faltando).split(': ')[1]}</strong>{' '}
-                                {p.faltando.length === 1 ? 'ficou de fora' : 'ficaram de fora'} e serão vendidas pelo preço normal.
-                                Edite uma das regras e estenda a <strong>última noite</strong> para cobrir.</>
-                            : <>Regra <strong>duplicada</strong> ({p.resumo}) — tem entrada repetida. Apague uma delas.</>}
-                        </li>
-                      ))}
-                    </ul>
+              <section className="prop-card">
+                <CabecalhoSecao titulo="Feriados" descricao={`Preço e mínimo de noites próprios para datas especiais.${cabeCasaCheia ? ' Dá para definir um preço fechado para quando a cabana lota.' : ''}`} />
+                {feriadosFuturos.length === 0 && <p className="prop-vazio">Nenhum feriado pela frente.</p>}
+                <div className="prop-lista">{feriadosFuturos.map(linhaFeriado)}</div>
+
+                {feriadosPassados.length > 0 && (
+                  <div style={{ marginTop: '12px' }}>
+                    <button className="prop-link" onClick={() => setMostrarPassados(v => !v)}>
+                      {mostrarPassados ? 'Esconder' : 'Mostrar'} {feriadosPassados.length} {feriadosPassados.length === 1 ? 'feriado que já passou' : 'feriados que já passaram'}
+                    </button>
+                    {mostrarPassados && <div className="prop-lista" style={{ marginTop: '10px', opacity: 0.7 }}>{feriadosPassados.map(linhaFeriado)}</div>}
                   </div>
                 )}
 
-                {activeRules.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
+                <div className="prop-novo">
+                  <EditarDataEspecial
+                    tipo="feriado" dados={newHoliday} onChange={setNewHoliday}
+                    onSalvar={() => handleAddHoliday(activeProp.id)} salvando={savingHoliday}
+                    titulo="Adicionar feriado" rotuloSalvar="Adicionar feriado"
+                    property={activeProp} dailyRates={initialDailyRates} rules={rules} holidays={holidays}
+                  />
+                </div>
+              </section>
+
+              {activeRules.length > 0 && (
+                <section className="prop-card">
+                  <CabecalhoSecao titulo="Regras de preço" descricao="Preço fixo por noite num período. Têm prioridade sobre os feriados." />
+                  <div className="prop-lista">
                     {activeRules.map((r: any) => (
-                      <div key={r.id} style={{ display: 'flex', flexDirection: 'column', padding: '12px 16px', border: '1px solid var(--border)', borderRadius: '8px', backgroundColor: 'var(--bg)' }}>
+                      <div key={r.id} className="prop-item">
                         {editingRule === r.id ? (
                           <EditarDataEspecial
                             tipo="regra" dados={editRuleData} onChange={setEditRuleData}
@@ -581,190 +560,61 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
                             property={activeProp} dailyRates={initialDailyRates} rules={rules} holidays={holidays}
                           />
                         ) : (
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                              <p style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 500 }}>{r.label}<span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '12px', marginLeft: '6px' }}>{r.valid_from?.slice(0, 4)}</span></p>
-                              <p style={{ color: 'var(--muted)', fontSize: '12px' }}>
-                                {descreveNoites(noitesCobertas('regra', r))}
-                              </p>
+                          <div className="prop-linha">
+                            <div style={{ minWidth: 0 }}>
+                              <p className="prop-linha-titulo">{r.label}<span>{r.valid_from?.slice(0, 4)}</span></p>
+                              <p className="prop-linha-sub">{descreveNoites(noitesCobertas('regra', r))}</p>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                              <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: '14px' }}>{formatCurrency(r.price)}<span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--muted)' }}>/noite</span></span>
-                              <div style={{ display: 'flex', gap: '4px' }}>
-                                <button onClick={() => handleReplicateRule(r)} title="Replicar para outras propriedades" style={{ backgroundColor: 'rgba(139,92,246,0.1)', color: 'var(--purple)', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  <Copy size={16} />
-                                </button>
-                                <button onClick={() => handleEditRule(r)} title="Editar regra" style={{ backgroundColor: 'rgba(59,130,246,0.1)', color: 'var(--info-strong)', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  <Edit2 size={16} />
-                                </button>
-                                <button onClick={() => handleDeleteRule(r.id)} title="Excluir regra" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: 'var(--danger)', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  <Trash2 size={16} />
-                                </button>
-                              </div>
+                            <div className="prop-linha-preco"><strong>{formatCurrency(r.price)}<span>/noite</span></strong></div>
+                            <div className="prop-acoes">
+                              <button onClick={() => handleReplicateRule(r)} title="Copiar para as outras cabanas" aria-label="Copiar para as outras cabanas"><Copy size={15} /></button>
+                              <button onClick={() => handleEditRule(r)} title="Editar" aria-label="Editar"><Edit2 size={15} /></button>
+                              <button onClick={() => handleDeleteRule(r.id)} title="Excluir" aria-label="Excluir" className="perigo"><Trash2 size={15} /></button>
                             </div>
                           </div>
                         )}
                       </div>
                     ))}
                   </div>
-                )}
+                </section>
+              )}
 
-                <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
-                  <h3 style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600, marginBottom: '16px' }}>Feriados</h3>
-                  {activeHolidays.length > 0 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
-                      {activeHolidays.map((h: any) => (
-                        <div key={h.id} style={{ display: 'flex', flexDirection: 'column', border: '1px solid var(--border)', borderRadius: '8px', backgroundColor: 'var(--bg)' }}>
-                          {editingHoliday === h.id ? (
-                            <EditarDataEspecial
-                              tipo="feriado" dados={editHolidayData} onChange={setEditHolidayData}
-                              onSalvar={handleSaveHolidayEdit} onCancelar={() => setEditingHoliday(null)} salvando={savingHoliday}
-                              property={activeProp} dailyRates={initialDailyRates} rules={rules} holidays={holidays}
-                            />
-                          ) : (
-                            <div style={{
-                              position: 'relative',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'flex-start',
-                              gap: '8px',
-                              padding: '16px'
-                            }}>
-                              <div style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '4px'
-                              }}>
-                                <p style={{ fontWeight: 600, color: 'var(--text)', fontSize: '14px' }}>{h.name}<span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '12px', marginLeft: '6px' }}>{h.date_from?.slice(0, 4)}</span></p>
-                                {h.price && (
-                                  <span style={{ color: 'var(--violet-soft)', fontWeight: 500, fontSize: '14px' }}>
-                                    {formatCurrency(h.price)}
-                                  </span>
-                                )}
-                                {h.price_full_occupancy != null && (
-                                  <span style={{ color: 'var(--violet-soft)', fontSize: '13px' }}>
-                                    Casa cheia ({activeProp.max_guests} pessoas): {formatCurrency(h.price_full_occupancy)}
-                                  </span>
-                                )}
-                                <p style={{ color: 'var(--muted)', fontSize: '12px', opacity: 0.7 }}>
-                                  {descreveNoites(noitesCobertas('feriado', h))}
-                                </p>
-                                <p style={{ color: 'var(--muted)', fontSize: '12px', opacity: 0.7 }}>
-                                  {h.min_nights > 1 ? `Mín. ${h.min_nights} noites (para check-in nestas datas)` : 'Mín. 1 noite'}
-                                </p>
-                              </div>
-                              <div style={{
-                                display: 'flex',
-                                gap: '8px',
-                                flexShrink: 0,
-                                alignSelf: 'flex-start',
-                                marginLeft: 'auto'
-                              }}>
-                                <button onClick={() => handleReplicateHoliday(h)} title="Replicar para outras propriedades" style={{ backgroundColor: 'rgba(139,92,246,0.1)', color: 'var(--purple)', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  <Copy size={16} />
-                                </button>
-                                <button onClick={() => handleEditHoliday(h)} title="Editar feriado" style={{ backgroundColor: 'rgba(59,130,246,0.1)', color: 'var(--info-strong)', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  <Edit2 size={16} />
-                                </button>
-                                <button onClick={() => handleDeleteHoliday(h.id)} title="Excluir feriado" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: 'var(--danger)', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  <Trash2 size={16} />
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <form onSubmit={(e) => handleAddHoliday(e, activeProp.id)} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', alignItems: 'end' }}>
-                    <div style={{ minWidth: 0 }}>
-                      <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Nome do Feriado</label>
-                      <input required value={newHoliday.name} onChange={e => setNewHoliday({...newHoliday, name: e.target.value})} placeholder="Ex: Natal" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Primeira noite</label>
-                      <input className="w-full max-w-full box-border" type="date" required value={newHoliday.primeira} onChange={e => setNewHoliday({...newHoliday, primeira: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', minHeight: '48px', outline: 'none' }} />
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Última noite</label>
-                      <input className="w-full max-w-full box-border" type="date" required value={newHoliday.ultima} onChange={e => setNewHoliday({...newHoliday, ultima: e.target.value})} style={{ colorScheme: 'light', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', minHeight: '48px', outline: 'none' }} />
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Preço/noite (R$)</label>
-                      <input type="number" value={newHoliday.price} onChange={e => setNewHoliday({...newHoliday, price: e.target.value})} placeholder="Opcional" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
-                    </div>
-                    {activeProp.max_guests > (activeProp.included_guests ?? 2) && (
-                      <div style={{ minWidth: 0 }}>
-                        <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Casa cheia ({activeProp.max_guests} pessoas)</label>
-                        <MoneyInput value={newHoliday.price_full} onChange={v => setNewHoliday({...newHoliday, price_full: v})} placeholder="Opcional" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
-                        <p style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px', lineHeight: 1.4 }}>Preço fechado por noite, já sem taxa de hóspede.</p>
-                      </div>
-                    )}
-                    <div style={{ minWidth: 0 }}>
-                      <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Mínimo de noites</label>
-                      <input type="number" required min="1" value={newHoliday.min_nights} onChange={e => setNewHoliday({...newHoliday, min_nights: e.target.value})} style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
-                      <p style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px', lineHeight: 1.4 }}>Aplica-se a quem faz CHECK-IN nestas datas.</p>
-                    </div>
-                    <button type="submit" disabled={savingHoliday} style={{ backgroundColor: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '8px', padding: '11px 24px', fontSize: '14px', cursor: 'pointer', fontWeight: 600, height: '45px' }}>
-                      {savingHoliday ? "..." : "Adicionar Feriado"}
-                    </button>
-                    {newHoliday.primeira && newHoliday.ultima && (
-                      <div style={{ gridColumn: '1 / -1' }}>
-                        <PreviaNoites
-                          property={activeProp} dailyRates={initialDailyRates} rules={rules} holidays={holidays}
-                          primeira={newHoliday.primeira} ultima={newHoliday.ultima}
-                          precoDraft={newHoliday.price} minDraft={newHoliday.min_nights}
-                        />
-                      </div>
-                    )}
-                  </form>
-
-                  {/* Formulário rápido para Diária Única */}
-                  <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
-                    <h3 style={{ color: 'var(--text)', fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>Liberar Diária Única (Exceção)</h3>
-                    <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '16px' }}>Use para liberar apenas 1 noite em um dia que normalmente exigiria mais (ex: Sexta-feira que sobrou de um feriado).</p>
-                    <form onSubmit={(e) => handleQuickAddHoliday(e, e.target as HTMLFormElement, activeProp.id)} style={{ display: 'flex', gap: '16px', alignItems: 'end', flexWrap: 'wrap' }}>
-                      <div style={{ flex: '1', minWidth: '180px' }}>
-                        <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Data de check-in</label>
-                        <input className="w-full max-w-full box-border" name="singleDate" type="date" required value={singleDate} onChange={e => setSingleDate(e.target.value)} style={{ colorScheme: 'light', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', minHeight: '48px', outline: 'none' }} />
-                      </div>
-                      <div style={{ flex: '1', minWidth: '180px' }}>
-                        <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Data de check-out</label>
-                        <input className="w-full max-w-full box-border" name="singleDateOut" type="date" required value={singleDateOut} onChange={e => setSingleDateOut(e.target.value)} style={{ colorScheme: 'light', backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', minHeight: '48px', outline: 'none' }} />
-                      </div>
-                      <div style={{ flex: '1', minWidth: '180px' }}>
-                        <label style={{ display: 'block', color: 'var(--muted)', fontSize: '13px', marginBottom: '6px' }}>Preço/noite (R$)</label>
-                        <input name="singlePrice" type="number" placeholder="Opcional" style={{ backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 16px', color: 'var(--text)', fontSize: '16px', width: '100%', outline: 'none', boxSizing: 'border-box' }} />
-                      </div>
-                      <button type="submit" disabled={savingHoliday} style={{ backgroundColor: 'rgba(124,58,237,0.1)', color: 'var(--purple)', border: '1px solid rgba(124,58,237,0.3)', borderRadius: '8px', padding: '11px 24px', fontSize: '14px', cursor: 'pointer', fontWeight: 600, height: '45px' }}>
-                        {savingHoliday ? "..." : "+ Liberar Data"}
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 3: Datas Bloqueadas */}
-              <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '28px', marginBottom: '20px' }}>
-                <div style={{ marginBottom: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-                    <span style={{ backgroundColor: 'var(--purple-dim)', color: 'var(--accent)', borderRadius: '6px', padding: '3px 12px', fontSize: '13px', fontWeight: 600 }}>03</span>
-                    <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600 }}>Datas Bloqueadas</h2>
-                  </div>
-                  <p style={{ color: 'var(--muted)', fontSize: '13px' }}>Dias em vermelho não poderão ser reservados pelos hóspedes (Uso Próprio/Manutenção).</p>
-                </div>
-                <div style={{ maxWidth: '340px' }}>
-                  <MiniCalendar propertyId={activeProp.id} blocks={blocks} onToggleBlock={handleToggleBlock} />
-                </div>
-              </div>
-
-            </div>
+              <section className="prop-card">
+                <CabecalhoSecao titulo="Liberar noite avulsa" descricao="Para vender só 1 noite numa data que normalmente exigiria mais (ex.: a sexta que sobrou de um feriado)." />
+                <form onSubmit={(e) => handleQuickAddHoliday(e, activeProp.id)} className="prop-grade" style={{ alignItems: 'end' }}>
+                  <Campo label="Check-in">
+                    {() => <AriumDatePicker required value={singleDate} onChange={setSingleDate} />}
+                  </Campo>
+                  <Campo label="Check-out">
+                    {() => <AriumDatePicker required value={singleDateOut} onChange={setSingleDateOut} />}
+                  </Campo>
+                  <Campo label="Preço da noite (opcional)">
+                    {id => <MoneyInput id={id} value={singlePrice} onChange={setSinglePrice} placeholder="Preço normal" style={precoInputStyle} />}
+                  </Campo>
+                  <button type="submit" disabled={savingHoliday} className="prop-btn-secundario">{savingHoliday ? 'Salvando...' : 'Liberar noite'}</button>
+                </form>
+              </section>
+            </>
           )}
-        </div>
-      )}
 
-      <ExtrasEPacotes tenantId={tenantId} extras={initialExtras} pacotes={initialPacotes} />
+          {activeProp && secao === 'promocoes' && (
+            <Promocoes property={activeProp} promotions={initialPromotions} />
+          )}
+
+          {activeProp && secao === 'bloqueios' && (
+            <section className="prop-card">
+              <CabecalhoSecao titulo="Bloquear dias" descricao="Toque num dia para bloquear ou liberar (uso próprio, manutenção). Para ver reservas junto, use o Calendário." />
+              <div style={{ maxWidth: '380px' }}>
+                <MiniCalendar propertyId={activeProp.id} blocks={blocks} onToggleBlock={handleToggleBlock} />
+              </div>
+            </section>
+          )}
+
+          {secao === 'extras' && (
+            <ExtrasEPacotes tenantId={tenantId} extras={initialExtras} pacotes={initialPacotes} />
+          )}
+        </>
+      )}
 
       <div style={{ marginTop: '32px' }}>
         <BotaoBackup />
@@ -772,3 +622,70 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
     </div>
   )
 }
+
+type Secao = 'precos' | 'calendario' | 'feriados' | 'promocoes' | 'bloqueios' | 'extras'
+
+const SECOES: { id: Secao, rotulo: string, Icone: typeof Tag }[] = [
+  { id: 'precos', rotulo: 'Diárias e taxas', Icone: Tag },
+  { id: 'calendario', rotulo: 'Preço por dia', Icone: CalendarDays },
+  { id: 'feriados', rotulo: 'Feriados', Icone: PartyPopper },
+  { id: 'promocoes', rotulo: 'Promoções', Icone: Percent },
+  { id: 'bloqueios', rotulo: 'Bloqueios', Icone: Lock },
+  { id: 'extras', rotulo: 'Consumo e pacotes', Icone: Gift },
+]
+
+function CabecalhoSecao({ titulo, descricao }: { titulo: string, descricao?: string }) {
+  return (
+    <div style={{ marginBottom: '18px' }}>
+      <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 700, marginBottom: '4px' }}>{titulo}</h2>
+      {descricao && <p style={{ color: 'var(--muted)', fontSize: '13px', lineHeight: 1.5 }}>{descricao}</p>}
+    </div>
+  )
+}
+
+const CSS_PROPRIEDADES = `
+.prop-cabanas { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.prop-cabanas button { height: 38px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--field-border); background: transparent; color: var(--muted); font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+.prop-cabanas button:hover { color: var(--text); border-color: var(--field-border-hover); }
+.prop-cabanas button.ativa { background-color: var(--purple); border-color: var(--purple); color: #fff; font-weight: 600; }
+.prop-secoes { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; scrollbar-width: none; }
+.prop-secoes::-webkit-scrollbar { display: none; }
+.prop-secoes button { display: inline-flex; align-items: center; gap: 7px; padding: 10px 14px; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; color: var(--muted); font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.prop-secoes button:hover { color: var(--text); }
+.prop-secoes button.ativa { color: var(--text); font-weight: 600; border-bottom-color: var(--purple); }
+.prop-card { background-color: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+.prop-grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.prop-subtitulo { color: var(--text); font-size: 14px; font-weight: 600; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+.prop-ajuda { color: var(--muted); font-size: 12px; margin: 2px 0 14px; }
+.prop-rodape { display: flex; justify-content: flex-end; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 20px; }
+.prop-btn-primario { height: 42px; padding: 0 22px; border-radius: 10px; border: none; background-color: var(--purple); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+.prop-btn-primario:disabled, .prop-btn-secundario:disabled { opacity: 0.6; cursor: not-allowed; }
+.prop-btn-secundario { height: 44px; padding: 0 20px; border-radius: 10px; border: 1px solid var(--purple); background: transparent; color: var(--accent); font-size: 14px; font-weight: 600; cursor: pointer; }
+.prop-btn-secundario:hover:not(:disabled) { background-color: rgba(124,58,237,0.1); }
+.prop-lista { display: flex; flex-direction: column; gap: 8px; }
+.prop-item { border: 1px solid var(--border); border-radius: 12px; background-color: var(--field-bg); }
+.prop-linha { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 16px; padding: 12px 14px; }
+.prop-linha-titulo { color: var(--text); font-size: 14px; font-weight: 600; }
+.prop-linha-titulo span { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 6px; }
+.prop-linha-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.prop-linha-preco { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.prop-linha-preco strong { color: var(--text); font-size: 14px; font-variant-numeric: tabular-nums; }
+.prop-linha-preco strong span { color: var(--muted); font-weight: 400; font-size: 12px; }
+.prop-linha-preco small { color: var(--violet-soft); font-size: 12px; }
+.prop-acoes { display: flex; gap: 4px; }
+.prop-acoes button { width: 32px; height: 32px; border-radius: 8px; border: none; background: transparent; color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.prop-acoes button:hover { background-color: rgba(124,58,237,0.12); color: var(--accent); }
+.prop-acoes button.perigo:hover { background-color: rgba(239,68,68,0.12); color: var(--danger); }
+.prop-vazio { color: var(--muted); font-size: 13px; padding: 4px 0 12px; }
+.prop-link { background: none; border: none; padding: 0; color: var(--accent); font-size: 13px; font-weight: 500; cursor: pointer; }
+.prop-link:hover { text-decoration: underline; }
+.prop-novo { margin-top: 20px; border: 1px dashed var(--field-border); border-radius: 12px; }
+.prop-alerta { background-color: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.35); border-radius: 12px; padding: 14px 18px; margin-bottom: 20px; }
+.prop-alerta ul { margin: 0; padding-left: 18px; color: var(--text); font-size: 13px; line-height: 1.6; }
+@media (max-width: 767px) {
+  .prop-card { padding: 18px 16px; }
+  .prop-linha { grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px; }
+  .prop-linha-preco { align-items: flex-start; text-align: left; grid-column: 1; }
+  .prop-acoes { grid-row: 1; grid-column: 2; }
+}
+`
