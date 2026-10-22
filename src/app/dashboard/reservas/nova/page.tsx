@@ -17,7 +17,7 @@ export default async function NovaReservaPage() {
 
   const { data: properties } = await supabase
     .from('properties')
-    .select('id, name')
+    .select('id, name, deposit_percent, max_guests')
     .eq('tenant_id', tenant.id)
 
   const propertyIds = properties?.map(p => p.id) || []
