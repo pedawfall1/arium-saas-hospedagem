@@ -1,8 +1,24 @@
 "use client"
 
-import { useState } from "react"
+import { useSyncExternalStore } from "react"
 import Link from "next/link"
 import { Check, ChevronRight, X } from "lucide-react"
+
+const CHAVE = 'arium:primeiros-passos-dispensado'
+
+// Ao fechar, a escolha fica guardada no navegador. Antes era só estado da
+// página: ao recarregar ou voltar ao Início o card reaparecia.
+const ouvintes = new Set<() => void>()
+function lerDispensado(): boolean {
+  try { return localStorage.getItem(CHAVE) === '1' } catch { return false }
+}
+function dispensar() {
+  try { localStorage.setItem(CHAVE, '1') } catch { /* modo privado: fecha só nesta visita */ }
+  memoria = true
+  ouvintes.forEach(f => f())
+}
+let memoria = false
+const assinar = (f: () => void) => { ouvintes.add(f); return () => { ouvintes.delete(f) } }
 
 type Passo = {
   titulo: string
@@ -28,7 +44,8 @@ export function PrimeirosPassos({
   temWhatsapp: boolean
   temReserva: boolean
 }) {
-  const [dispensado, setDispensado] = useState(false)
+  // No servidor conta como dispensado: assim o card não pisca para quem já fechou.
+  const dispensado = useSyncExternalStore(assinar, () => memoria || lerDispensado(), () => true)
 
   const passos: Passo[] = [
     {
@@ -78,7 +95,7 @@ export function PrimeirosPassos({
       }}
     >
       <button
-        onClick={() => setDispensado(true)}
+        onClick={dispensar}
         aria-label="Dispensar primeiros passos"
         style={{
           position: 'absolute', top: '14px', right: '14px',
