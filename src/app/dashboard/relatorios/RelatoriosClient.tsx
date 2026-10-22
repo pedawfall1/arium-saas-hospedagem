@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo } from "react"
 import { TrendingUp, TrendingDown, Wallet, CalendarCheck, Clock, PiggyBank, Gift } from "lucide-react"
 import { formatCurrency } from "@/lib/utils"
-import { startOfMonth, endOfMonth, parseISO, format, differenceInDays, subMonths } from "date-fns"
+import { startOfMonth, endOfMonth, parseISO, format, differenceInDays, subMonths, startOfYear } from "date-fns"
+import { ptBR } from "date-fns/locale"
 import { computeFinance } from "@/lib/financeiro"
 import { ExportarContador } from "@/components/ExportarContador"
 import DatePicker from "react-datepicker"
@@ -12,20 +13,22 @@ import "react-datepicker/dist/react-datepicker.css"
 const card = {
   backgroundColor: 'var(--surface)',
   border: '1px solid var(--border)',
-  borderRadius: '12px',
+  borderRadius: '16px',
   padding: '24px',
 }
 
-function StatCard({ label, value, sub, icon: Icon, color }: any) {
+function StatCard({ label, value, sub, icon: Icon, color, cor }: any) {
+  // `color` é o tom do valor (ex.: verde/vermelho); `cor` o do ícone.
+  const tom = cor || '#8b5cf6'
   return (
-    <div style={{ ...card, borderTop: `3px solid ${color}` }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+    <div style={{ ...card, padding: '16px', minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px', borderRadius: '8px', backgroundColor: `${tom}1f`, color: tom, flexShrink: 0 }}>
+          <Icon size={15} />
+        </span>
         <h3 style={{ color: 'var(--muted)', fontSize: '13px', fontWeight: 500 }}>{label}</h3>
-        <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: 'var(--purple-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Icon size={18} color="var(--accent)" />
-        </div>
       </div>
-      <p style={{ color, fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 800, lineHeight: 1.1, whiteSpace: 'nowrap' }}>{value}</p>
+      <p style={{ color, fontSize: '21px', fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{value}</p>
       {sub && <p style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '6px' }}>{sub}</p>}
     </div>
   )
@@ -130,7 +133,7 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
       const r = computeFinance({ properties, bookings, expenses, extras, payments, inicio: ini, fim, hoje: hojeSafe })
       const alvo = cabana === 'all' ? r.total : r.porCabana.find(x => x.propertyId === cabana)
       out.push({
-        label: format(m, 'MMM'),
+        label: (() => { const t = format(m, 'MMM', { locale: ptBR }).replace('.', ''); return t.charAt(0).toUpperCase() + t.slice(1) })(),
         receita: alvo?.receita ?? 0,
         gastos: alvo?.gastos ?? 0,
         liquido: alvo?.liquido ?? 0,
@@ -155,6 +158,15 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
 
   const maxCategoria = Math.max(...porCategoria.map(c => c.valor), 1)
 
+  const ref = new Date()
+  const iso = (d: Date) => format(d, 'yyyy-MM-dd')
+  const atalhos = [
+    { rotulo: 'Este mês', de: iso(startOfMonth(ref)), ate: iso(endOfMonth(ref)) },
+    { rotulo: 'Mês passado', de: iso(startOfMonth(subMonths(ref, 1))), ate: iso(endOfMonth(subMonths(ref, 1))) },
+    { rotulo: 'Últimos 3 meses', de: iso(startOfMonth(subMonths(ref, 2))), ate: iso(endOfMonth(ref)) },
+    { rotulo: 'Este ano', de: iso(startOfYear(ref)), ate: iso(endOfMonth(ref)) },
+  ]
+
   const inputStyle = {
     backgroundColor: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '8px',
     padding: '10px 14px', color: 'var(--text)', fontSize: '15px', width: '100%',
@@ -163,12 +175,27 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
 
   return (
     <div style={{ width: '100%' }}>
+      <style>{`
+        .rel-atalhos { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        .rel-atalhos button { height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--field-border); background: transparent; color: var(--muted); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+        .rel-atalhos button:hover { color: var(--text); border-color: var(--field-border-hover); }
+        .rel-atalhos button.ativo { background-color: var(--purple); border-color: var(--purple); color: #fff; font-weight: 600; }
+      `}</style>
       <h1 style={{ color: 'var(--text)', fontSize: '28px', fontWeight: 700, marginBottom: '6px' }}>
         Relatórios Financeiros
       </h1>
       <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '28px' }}>
         Faturamento, gastos e lucro líquido — no total e cabana por cabana.
       </p>
+
+      {/* Atalhos de período */}
+      <div className="rel-atalhos">
+        {atalhos.map(a => (
+          <button key={a.rotulo} type="button" onClick={() => { setStartDate(a.de); setEndDate(a.ate) }} className={startDate === a.de && endDate === a.ate ? 'ativo' : ''}>
+            {a.rotulo}
+          </button>
+        ))}
+      </div>
 
       {/* Filtros */}
       <div style={{ ...card, display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
@@ -208,37 +235,37 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
       </div>
 
       {/* Cartões */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px', marginBottom: '24px' }}>
         <StatCard
           label="Faturamento realizado" value={formatCurrency(vis.receita)}
           sub={`${formatCurrency(vis.diarias)} diárias + ${formatCurrency(vis.extras)} extras`}
-          icon={TrendingUp} color="var(--success-strong)"
+          icon={TrendingUp} color="var(--text)" cor="#22c55e"
         />
         <StatCard
           label="Gastos" value={formatCurrency(vis.gastos)}
           sub={cabana === 'all' && fin.total.gastosGerais > 0 ? `inclui ${formatCurrency(fin.total.gastosGerais)} de gastos gerais` : 'no período'}
-          icon={TrendingDown} color="var(--danger-strong)"
+          icon={TrendingDown} color="var(--text)" cor="#ef4444"
         />
         <StatCard
           label="Lucro líquido" value={formatCurrency(vis.liquido)}
           sub={`margem de ${vis.margem.toFixed(1)}%`}
-          icon={PiggyBank} color={vis.liquido >= 0 ? 'var(--success-strong)' : 'var(--danger-strong)'}
+          icon={PiggyBank} color={vis.liquido >= 0 ? 'var(--success)' : 'var(--danger)'} cor="#8b5cf6"
         />
         <StatCard
           label="Ainda a receber" value={formatCurrency(vis.aReceber)}
           sub="futuras + marcadas como não recebidas"
-          icon={Clock} color="var(--info-strong)"
+          icon={Clock} color="var(--text)" cor="#3b82f6"
         />
         <StatCard
           label="Reservas" value={String(vis.reservas)}
           sub={`ticket médio ${formatCurrency(vis.ticketMedio)}`}
-          icon={CalendarCheck} color="var(--purple)"
+          icon={CalendarCheck} color="var(--text)" cor="#f97b00"
         />
         {cortesiasVis.cortesias > 0 && (
           <StatCard
             label="Diárias de cortesia" value={String(cortesiasVis.cortesias)}
             sub={`${cortesiasVis.noitesCedidas} noite${cortesiasVis.noitesCedidas !== 1 ? 's' : ''} cedida${cortesiasVis.noitesCedidas !== 1 ? 's' : ''} (influencer/permuta)`}
-            icon={Gift} color="var(--violet-mid)"
+            icon={Gift} color="var(--text)" cor="#c084fc"
           />
         )}
       </div>
@@ -360,7 +387,7 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
                   <span style={{ color: 'var(--text)', fontSize: '14px' }}>{c.nome}</span>
                   <span style={{ color: 'var(--danger)', fontSize: '14px', fontWeight: 600 }}>{formatCurrency(c.valor)}</span>
                 </div>
-                <div style={{ backgroundColor: 'var(--bg)', borderRadius: '999px', height: '7px', overflow: 'hidden' }}>
+                <div style={{ backgroundColor: 'rgba(148,163,184,0.15)', borderRadius: '999px', height: '7px', overflow: 'hidden' }}>
                   <div style={{
                     backgroundColor: 'var(--danger-strong)', height: '100%',
                     width: mounted ? `${(c.valor / maxCategoria) * 100}%` : '0%',
@@ -379,7 +406,8 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
 
         {/* Ocupação */}
         <div style={card}>
-          <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '20px' }}>Ocupação</h2>
+          <h2 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 600, marginBottom: '4px' }}>Ocupação</h2>
+          <p style={{ color: 'var(--muted)', fontSize: '12px', marginBottom: '18px' }}>Noites vendidas no período (bloqueios de uso próprio não contam).</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {ocupacao.map((p, i) => (
               <div key={i}>
@@ -387,7 +415,7 @@ export function RelatoriosClient({ bookings, properties, expenses, extras, categ
                   <span style={{ color: 'var(--text)', fontSize: '14px' }}>{p.name}</span>
                   <span style={{ color: 'var(--accent)', fontSize: '14px', fontWeight: 600 }}>{p.rate.toFixed(1)}%</span>
                 </div>
-                <div style={{ backgroundColor: 'var(--bg)', borderRadius: '999px', height: '7px', overflow: 'hidden' }}>
+                <div style={{ backgroundColor: 'rgba(148,163,184,0.15)', borderRadius: '999px', height: '7px', overflow: 'hidden' }}>
                   <div style={{
                     backgroundColor: 'var(--purple)', height: '100%',
                     width: mounted ? `${p.rate}%` : '0%',
