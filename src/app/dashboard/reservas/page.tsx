@@ -3,7 +3,7 @@ import { ReservasClient } from "./ReservasClient"
 
 export const revalidate = 30
 
-export default async function ReservasPage() {
+export default async function ReservasPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -31,9 +31,25 @@ export default async function ReservasPage() {
       .select('*, properties(*) ')
       .in('property_id', propertyIds)
       .order('created_at', { ascending: false })
-      
+
     bookings = data || []
   }
 
-  return <ReservasClient bookings={bookings} properties={properties || []} />
+  // Pagamentos lançados: a receita usa a mesma regra do Início e de Relatórios.
+  const { data: payments } = await supabase
+    .from('booking_payments')
+    .select('id, booking_id, amount, date')
+    .eq('tenant_id', tenant.id)
+
+  // Links como "Aguardando ação" (Início) chegam com ?status=pending.
+  const { status } = await searchParams
+
+  return (
+    <ReservasClient
+      bookings={bookings}
+      properties={properties || []}
+      payments={payments || []}
+      statusInicial={status || 'all'}
+    />
+  )
 }
