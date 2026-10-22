@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Sidebar from '@/components/layout/Sidebar'
 import Image from 'next/image'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, Sun, Moon } from 'lucide-react'
 
 export default function DashboardShell({ tenant, children }: { tenant: any, children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -31,26 +31,17 @@ export default function DashboardShell({ tenant, children }: { tenant: any, chil
 
       {/* Sidebar — desktop only */}
       <aside style={{
-        width: '280px', minHeight: '100vh', position: 'fixed',
+        width: '280px', height: '100vh', position: 'fixed',
         top: 0, left: 0, zIndex: 40, display: 'none',
         backgroundColor: 'var(--sidebar)',
         borderRight: '1px solid var(--border)',
       }} className="md-sidebar">
-        <button
-          onClick={toggleTheme}
-          style={{
-            position: 'absolute', top: '16px', right: '16px',
-            background: 'none', border: '1px solid var(--border)',
-            borderRadius: '8px', padding: '6px 10px', cursor: 'pointer',
-            color: 'var(--muted)', fontSize: '16px', zIndex: 50
-          }}
-        >
-          {theme === 'dark' ? '☀️' : '🌙'}
-        </button>
         <Sidebar
           userName={tenant.business_name}
           userEmail={tenant.email}
           role="tenant"
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
       </aside>
 
@@ -69,23 +60,25 @@ export default function DashboardShell({ tenant, children }: { tenant: any, chil
           <span style={{ color: 'var(--text)', fontWeight: 700, fontSize: '18px' }}>Arium</span>
         </a>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ color: 'var(--muted)', fontSize: '12px' }}>{tenant.business_name}</span>
+          <span style={{ color: 'var(--muted)', fontSize: '12px', maxWidth: '120px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{tenant.business_name}</span>
           <button
             onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}
             style={{
-              background: 'none', border: '1px solid var(--border)',
-              borderRadius: '8px', padding: '6px 10px', cursor: 'pointer',
-              color: 'var(--muted)', fontSize: '16px'
+              background: 'none', border: '1px solid var(--field-border)',
+              borderRadius: '10px', width: '38px', height: '38px', cursor: 'pointer',
+              color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >
-            {theme === 'dark' ? '☀️' : '🌙'}
+            {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
           </button>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
             style={{
-              background: 'none', border: '1px solid var(--border)',
-              borderRadius: '8px', padding: '8px 10px', cursor: 'pointer',
-              color: 'var(--muted)', display: 'flex', alignItems: 'center',
+              background: 'none', border: '1px solid var(--field-border)',
+              borderRadius: '10px', width: '38px', height: '38px', cursor: 'pointer',
+              color: 'var(--text)', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >
             {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
@@ -117,6 +110,8 @@ export default function DashboardShell({ tenant, children }: { tenant: any, chil
               userEmail={tenant.email}
               role="tenant"
               onNavClick={() => setMobileMenuOpen(false)}
+              theme={theme}
+              onToggleTheme={toggleTheme}
             />
           </div>
         </>
