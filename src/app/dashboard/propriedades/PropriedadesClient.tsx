@@ -103,7 +103,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
   const [holidays, setHolidays] = useState(initialHolidays)
   // Fala em NOITES (primeira/última), não em date_from/date_to. A conversão
   // para os campos do banco acontece no salvar, via paraArmazenamento().
-  const [newHoliday, setNewHoliday] = useState<any>({ property_id: '', name: '', primeira: '', ultima: '', price: '', price_full_occupancy: '', min_nights: '1' })
+  const [newHoliday, setNewHoliday] = useState<any>({ property_id: '', name: '', primeira: '', ultima: '', price: '', price_full_occupancy: '', full_occupancy_min_guests: '', min_nights: '1' })
   const [singlePrice, setSinglePrice] = useState('')
   const [secao, setSecao] = useState<Secao>('precos')
   const [mostrarPassados, setMostrarPassados] = useState(false)
@@ -283,6 +283,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
       ...paraArmazenamento('feriado', newHoliday.primeira, newHoliday.ultima),
       price: isNaN(parseMoney(newHoliday.price)) ? null : parseMoney(newHoliday.price),
       price_full_occupancy: isNaN(parseMoney(newHoliday.price_full_occupancy)) ? null : parseMoney(newHoliday.price_full_occupancy),
+      full_occupancy_min_guests: newHoliday.full_occupancy_min_guests ? Number(newHoliday.full_occupancy_min_guests) : null,
       min_nights: Number(newHoliday.min_nights) || 1,
     }
     const { data, error } = await supabase.from('holidays').insert([holidayObj]).select()
@@ -290,7 +291,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
     if (error) { setPricesMsg({ text: error.message, type: 'err' }); return }
     if (data && data.length > 0) {
       setHolidays([...holidays, data[0]])
-      setNewHoliday({ property_id: '', name: '', primeira: '', ultima: '', price: '', price_full_occupancy: '', min_nights: '1' })
+      setNewHoliday({ property_id: '', name: '', primeira: '', ultima: '', price: '', price_full_occupancy: '', full_occupancy_min_guests: '', min_nights: '1' })
     }
   }
 
@@ -346,6 +347,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
       ...paraArmazenamento('feriado', editHolidayData.primeira, editHolidayData.ultima),
       price: isNaN(parseMoney(editHolidayData.price)) ? null : parseMoney(editHolidayData.price),
       price_full_occupancy: isNaN(parseMoney(editHolidayData.price_full_occupancy)) ? null : parseMoney(editHolidayData.price_full_occupancy),
+      full_occupancy_min_guests: editHolidayData.full_occupancy_min_guests ? Number(editHolidayData.full_occupancy_min_guests) : null,
       min_nights: Number(editHolidayData.min_nights) || 1,
     }).eq('id', editHolidayData.id).select()
     setSavingHoliday(false)
@@ -367,6 +369,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
       date_to: h.date_to,
       price: h.price,
       price_full_occupancy: h.price_full_occupancy,
+      full_occupancy_min_guests: h.full_occupancy_min_guests,
       min_nights: h.min_nights
     }))
     const { data } = await supabase.from('holidays').insert(newHolidays).select()
@@ -414,7 +417,7 @@ export function PropriedadesClient({ initialProperties, tenantName, initialRules
           </div>
           <div className="prop-linha-preco">
             {h.price != null ? <strong>{formatCurrency(h.price)}<span>/noite</span></strong> : <span style={{ color: 'var(--muted)', fontSize: '13px' }}>preço normal</span>}
-            {h.price_full_occupancy != null && <small>casa cheia ({activeProp.max_guests}): {formatCurrency(h.price_full_occupancy)}</small>}
+            {h.price_full_occupancy != null && <small>{h.full_occupancy_min_guests ? `${h.full_occupancy_min_guests}+ pessoas` : `casa cheia (${activeProp.max_guests})`}: {formatCurrency(h.price_full_occupancy)}</small>}
           </div>
           <div className="prop-acoes">
             <button onClick={() => handleReplicateHoliday(h)} title="Copiar para as outras cabanas" aria-label="Copiar para as outras cabanas"><Copy size={15} /></button>
